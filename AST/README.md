@@ -1,47 +1,57 @@
 # AST 코드 분석 도구
 
-`C:\sk-encoa\AST\.venv`의 분리된 Python 환경에서 실행한다. Python `.py` 파일과 Jupyter `.ipynb` 코드 셀을 지원하며 분석 대상 코드는 수정하지 않는다.
+`C:\sk-encoa\QA_train\AST\.venv`의 분리된 Python 환경에서 실행한다. Python `.py` 파일과 Jupyter `.ipynb` 코드 셀을 지원하며 분석 대상 코드는 수정하지 않는다.
 
 자세한 단일 파일 분석 방법은 [`USAGE_GUIDE.md`](USAGE_GUIDE.md)를 참고한다.
 
 ## 코드 구조 분석
 
 ```powershell
-C:\sk-encoa\AST\run_ast_analyzer.ps1 structure C:\sk-encoa\gitproject\app.py
+C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure C:\sk-encoa\gitproject\app.py
 ```
 
 노트북 분석:
 
 ```powershell
-C:\sk-encoa\AST\run_ast_analyzer.ps1 structure C:\sk-encoa\gitproject\py08-streamlit.ipynb
+C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure C:\sk-encoa\gitproject\py08-streamlit.ipynb
 ```
 
-`--output`을 생략하면 `C:\sk-encoa\AST\reports\app_ast_structure.md`에 자동 저장한다. 같은 파일을 다시 분석하면 최신 결과로 갱신한다.
+`--output`을 생략하면 `reports\structure\app_ast_structure.md`에 자동 저장한다. 같은 파일을 다시 분석하면 최신 결과로 갱신한다.
 
 저장 위치를 직접 지정할 수도 있다.
 
 ```powershell
-C:\sk-encoa\AST\run_ast_analyzer.ps1 structure C:\sk-encoa\gitproject\app.py --output C:\보고서\app.md
+C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure C:\sk-encoa\gitproject\app.py --output C:\보고서\app.md
 ```
 
 JSON이 필요하면 다음과 같이 실행한다.
 
 ```powershell
-C:\sk-encoa\AST\run_ast_analyzer.ps1 structure C:\sk-encoa\gitproject\app.py --format json
+C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure C:\sk-encoa\gitproject\app.py --format json
 ```
 
-JSON도 `C:\sk-encoa\AST\reports\app_ast_structure.json`에 자동 저장된다.
+JSON도 `reports\structure\app_ast_structure.json`에 자동 저장된다.
+
+## AST 트리형 분석
+
+트리형은 `_Tree` 실행 파일을 사용한다.
+
+```powershell
+C:\sk-encoa\QA_train\AST\run_ast_analyzer_Tree.ps1 C:\sk-encoa\gitproject\py08-streamlit.ipynb
+```
+
+결과는 `reports\tree\py08-streamlit_ast_tree.md`에 저장된다.
 
 ## 커밋되지 않은 Python 변경 분석
 
 ```powershell
-C:\sk-encoa\AST\run_ast_analyzer.ps1 diff C:\sk-encoa\gitproject --base HEAD --output ast-diff-report.md
+C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 diff C:\sk-encoa\gitproject --base HEAD --output ast-diff-report.md
 ```
 
 ## 브랜치 또는 커밋 비교
 
 ```powershell
-C:\sk-encoa\AST\run_ast_analyzer.ps1 diff C:\sk-encoa\gitproject --base origin/main --target HEAD --output ast-diff-report.md
+C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 diff C:\sk-encoa\gitproject --base origin/main --target HEAD --output ast-diff-report.md
 ```
 
 보고서는 두 순서로 구성된다.

@@ -653,6 +653,63 @@ def structure_report(source: Path) -> dict:
     }
 
 
+def markdown_ast_tree(source: Path) -> str:
+    source = source.resolve()
+    if not source.exists():
+        raise FileNotFoundError(f"분석 경로가 없습니다: {source}")
+
+    root = source.parent if source.is_file() else source
+    title = source.stem if source.is_file() else source.name
+    lines = [
+        f"# {title} AST Tree",
+        "",
+        f"- 분석 경로: `{source}`",
+    ]
+
+    for path in sorted(iter_source_files(source)):
+        relative = path.relative_to(root).as_posix()
+        if path.suffix.lower() == ".ipynb":
+            try:
+                notebook = json.loads(path.read_text(encoding="utf-8-sig"))
+            except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                lines.extend(["", f"## {relative}", "", f"파싱 오류: {type(exc).__name__}: {exc}"])
+                continue
+
+            for cell_number, cell in enumerate(notebook.get("cells", []), start=1):
+                if cell.get("cell_type") != "code":
+                    continue
+                raw_source = cell.get("source", "")
+                cell_source = "".join(raw_source) if isinstance(raw_source, list) else str(raw_source)
+                if not cell_source.strip():
+                    continue
+                heading = (
+                    f"원본 코드 셀 {cell_number}"
+                    if source.is_file()
+                    else f"{relative} 코드 셀 {cell_number}"
+                )
+                lines.extend(["", f"## {heading}", "", "```text"])
+                try:
+                    tree = ast.parse(
+                        sanitize_notebook_source(cell_source),
+                        filename=f"{relative}#cell-{cell_number}",
+                    )
+                    lines.append(ast.dump(tree, indent=2))
+                except SyntaxError as exc:
+                    lines.append(f"SyntaxError: {exc}")
+                lines.append("```")
+        else:
+            heading = "원본 파일" if source.is_file() else relative
+            lines.extend(["", f"## {heading}", "", "```text"])
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
+                lines.append(ast.dump(tree, indent=2))
+            except (OSError, SyntaxError, UnicodeError) as exc:
+                lines.append(f"{type(exc).__name__}: {exc}")
+            lines.append("```")
+
+    return "\n".join(lines) + "\n"
+
+
 def markdown_structure(report: dict) -> str:
     lines = [
         "# AST 코드 구조 분석",
@@ -772,13 +829,22 @@ def default_output_path(report: dict, output_format: str) -> Path:
         source = Path(report["source"])
         source_name = source.stem if source.is_file() else source.name
         filename = f"{source_name}_ast_structure{extension}"
+        reports_dir = reports_dir / "structure"
     else:
         repository_name = Path(report["repository"]).name
         base = re.sub(r"[^0-9A-Za-z._-]+", "_", report["base"])[:24]
         target = re.sub(r"[^0-9A-Za-z._-]+", "_", report["target"])[:24]
         filename = f"{repository_name}_{base}_to_{target}_ast_diff{extension}"
+        reports_dir = reports_dir / "diff"
     filename = re.sub(r"[^0-9A-Za-z가-힣._-]+", "_", filename)
     return reports_dir / filename
+
+
+def default_tree_output_path(source: Path) -> Path:
+    source = source.resolve()
+    source_name = source.stem if source.is_file() else source.name
+    filename = re.sub(r"[^0-9A-Za-z가-힣._-]+", "_", f"{source_name}_ast_tree.md")
+    return Path(__file__).resolve().parent / "reports" / "tree" / filename
 
 
 def write_output(report: dict, output_format: str, output: str | None) -> None:
@@ -794,6 +860,13 @@ def write_output(report: dict, output_format: str, output: str | None) -> None:
     print(f"작성 완료: {output_path}")
 
 
+def write_tree_output(source: Path, output: str | None) -> None:
+    output_path = Path(output).resolve() if output else default_tree_output_path(source)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(markdown_ast_tree(source), encoding="utf-8")
+    print(f"AST 트리 작성 완료: {output_path}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Python AST를 이용한 .py/.ipynb 코드 구조 및 Git diff 영향 분석 도구"
@@ -803,7 +876,11 @@ def build_parser() -> argparse.ArgumentParser:
     structure = subparsers.add_parser("structure", help="파일 또는 폴더의 코드 구조 분석")
     structure.add_argument("source", help="Python .py/.ipynb 파일 또는 프로젝트 폴더")
     structure.add_argument("--format", choices=("markdown", "json"), default="markdown")
-    structure.add_argument("--output", help="결과 파일 경로")
+    structure.add_argument("--output", help="가공형 결과 파일 경로")
+
+    tree = subparsers.add_parser("tree", help="파일 또는 폴더의 원본 AST 트리 출력")
+    tree.add_argument("source", help="Python .py/.ipynb 파일 또는 프로젝트 폴더")
+    tree.add_argument("--output", help="AST 트리형 결과 파일 경로")
 
     diff = subparsers.add_parser("diff", help="Git diff의 변경 심볼과 연관 모듈 분석")
     diff.add_argument("repository", help="Git 저장소 경로")
@@ -822,9 +899,12 @@ def main() -> int:
     try:
         if args.command == "structure":
             report = structure_report(Path(args.source))
+            write_output(report, args.format, args.output)
+        elif args.command == "tree":
+            write_tree_output(Path(args.source), args.output)
         else:
             report = build_diff_report(Path(args.repository), args.base, args.target)
-        write_output(report, args.format, args.output)
+            write_output(report, args.format, args.output)
         return 0
     except (OSError, RuntimeError, ValueError) as exc:
         print(f"오류: {exc}", file=sys.stderr)

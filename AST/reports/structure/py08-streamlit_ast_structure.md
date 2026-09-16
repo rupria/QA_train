@@ -1,6 +1,6 @@
 # AST 코드 구조 분석
 
-- 분석 경로: `C:\sk-encoa\gitproject\py08-streamlit.ipynb`
+- 분석 경로: `C:\sk-encoa\QA_train\AST\reports\py08-streamlit.ipynb`
 - Python 모듈/노트북 코드 셀: 17개
 
 | 기능 그룹 | 모듈 | 파일 | 심볼 수 | 실행 요소 | import 수 | 상태 |

@@ -1,5 +1,7 @@
 # py08-streamlit AST Tree
 
+- 분석 경로: `C:\sk-encoa\QA_train\AST\reports\py08-streamlit.ipynb`
+
 ## 원본 코드 셀 5
 
 ```text
