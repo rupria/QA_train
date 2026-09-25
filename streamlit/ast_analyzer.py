@@ -6,6 +6,7 @@ import json
 import re
 import subprocess
 import sys
+import zipfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterable
@@ -869,7 +870,7 @@ def write_tree_output(source: Path, output: str | None) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Python AST를 이용한 .py/.ipynb 코드 구조 및 Git diff 영향 분석 도구"
+        description="Python AST 구조·변경 영향 분석과 QA 입력 변환·비교 도구"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -888,6 +889,22 @@ def build_parser() -> argparse.ArgumentParser:
     diff.add_argument("--target", help="대상 ref. 생략 시 working tree")
     diff.add_argument("--format", choices=("markdown", "json"), default="markdown")
     diff.add_argument("--output", help="결과 파일 경로")
+
+    convert = subparsers.add_parser("convert", help="로컬·Git·엔진·APK·IPA 입력을 비교용 스냅샷으로 준비")
+    convert.add_argument("source", help="입력 파일, 프로젝트 또는 Git 저장소 경로")
+    convert.add_argument("--kind", choices=("auto", "local", "engine", "git", "apk", "ipa"), default="auto")
+    convert.add_argument("--output", help="새로 만들 스냅샷 폴더")
+    convert.add_argument("--ref", help="kind=git에서 고정할 브랜치·태그·커밋")
+    convert.add_argument("--source-root", default=".", help="저장소 또는 프로젝트 안의 비교 루트")
+    convert.add_argument("--jadx", help="APK DEX 복원에 사용할 JADX 실행 파일 또는 CLI JAR")
+
+    compare = subparsers.add_parser("compare", help="Ver.A와 Ver.B의 Python 코드 영향 비교")
+    compare.add_argument("base", help="Ver.A 원본 또는 변환 스냅샷")
+    compare.add_argument("target", help="Ver.B 원본 또는 변환 스냅샷")
+    compare.add_argument("--features", help="기능·TC 매핑 JSON")
+    compare.add_argument("--max-depth", type=int, default=10, help="호출·참조 역추적 깊이")
+    compare.add_argument("--format", choices=("both", "markdown", "json"), default="both")
+    compare.add_argument("--output", help="비교 보고서 경로 또는 확장자 없는 stem")
     return parser
 
 
@@ -900,16 +917,41 @@ def main() -> int:
         if args.command == "structure":
             report = structure_report(Path(args.source))
             write_output(report, args.format, args.output)
-        elif args.command == "tree":
+            return 0
+        if args.command == "tree":
             write_tree_output(Path(args.source), args.output)
-        else:
+            return 0
+        if args.command == "diff":
             report = build_diff_report(Path(args.repository), args.base, args.target)
             write_output(report, args.format, args.output)
-        return 0
-    except (OSError, RuntimeError, ValueError) as exc:
+            return 0
+        if args.command == "convert":
+            from artifact_conversion import convert_input
+
+            manifest = convert_input(
+                Path(args.source),
+                kind=args.kind,
+                output=args.output,
+                ref=args.ref,
+                source_root=args.source_root,
+                jadx=args.jadx,
+            )
+            print(f"입력 스냅샷 작성 완료: {manifest['output_path']}")
+            return 2 if manifest.get("status") == "partial" else 0
+
+        from code_comparison import build_comparison, write_comparison
+
+        report = build_comparison(
+            Path(args.base),
+            Path(args.target),
+            features_path=args.features,
+            max_depth=args.max_depth,
+        )
+        write_comparison(report, args.format, args.output)
+        return 2 if report.get("status") == "incomplete" else 0
+    except (OSError, RuntimeError, ValueError, zipfile.BadZipFile, subprocess.SubprocessError) as exc:
         print(f"오류: {exc}", file=sys.stderr)
         return 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -1,0 +1,11 @@
+[project]
+name = "qa-ast-analyzer"
+version = "0.1.0"
+description = "Streamlit QA code comparison and Python AST impact analyzer"
+requires-python = ">=3.12"
+dependencies = [
+    "streamlit>=1.64,<2",
+]
+
+[tool.uv]
+package = false

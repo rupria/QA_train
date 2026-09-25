@@ -5,7 +5,7 @@
 AST 분석기는 분석 대상 프로젝트와 분리되어 있다.
 
 ```text
-C:\sk-encoa\QA_train\AST
+C:\codes\QA_train\streamlit
 ├─ .venv\                  AST 전용 Python 실행 환경
 ├─ ast_analyzer.py         분석기 본체
 ├─ run_ast_analyzer.ps1    가공형/ diff PowerShell 실행 파일
@@ -33,25 +33,25 @@ GitHub 연결, 브랜치, 커밋 해시는 단일 파일 AST 분석에 사용하
 PowerShell에서 다음 명령을 실행한다.
 
 ```powershell
-C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure "분석할 .py 또는 .ipynb 파일의 전체 경로"
+C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 structure "분석할 .py 또는 .ipynb 파일의 전체 경로"
 ```
 
 예시:
 
 ```powershell
-C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure "C:\sk-encoa\gitproject\app.py"
+C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 structure "C:\sk-encoa\gitproject\app.py"
 ```
 
 Jupyter Notebook 예시:
 
 ```powershell
-C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure "C:\sk-encoa\gitproject\py08-streamlit.ipynb"
+C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 structure "C:\sk-encoa\gitproject\py08-streamlit.ipynb"
 ```
 
 실행 결과:
 
 ```text
-작성 완료: C:\sk-encoa\QA_train\AST\reports\structure\app_ast_structure.md
+작성 완료: C:\codes\QA_train\streamlit\reports\structure\app_ast_structure.md
 ```
 
 ## 4. 자동 저장 규칙
@@ -59,7 +59,7 @@ C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure "C:\sk-encoa\gitproject\
 `--output`을 생략하면 다음 규칙으로 저장한다.
 
 ```text
-C:\sk-encoa\QA_train\AST\reports\structure\[원본 파일명]_ast_structure.md
+C:\codes\QA_train\streamlit\reports\structure\[원본 파일명]_ast_structure.md
 ```
 
 예시:
@@ -74,9 +74,9 @@ C:\sk-encoa\QA_train\AST\reports\structure\[원본 파일명]_ast_structure.md
 서로 다른 폴더에 같은 파일명이 있으면 보고서명이 겹칠 수 있다. 이 경우 `--output`으로 저장 경로를 직접 지정한다.
 
 ```powershell
-C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure `
+C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 structure `
   "C:\project-a\service\user.py" `
-  --output "C:\sk-encoa\QA_train\AST\reports\structure\project-a_user_ast.md"
+  --output "C:\codes\QA_train\streamlit\reports\structure\project-a_user_ast.md"
 ```
 
 ## 5. 출력 형식 선택
@@ -86,7 +86,7 @@ C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure `
 기본 형식이다. 사람이 읽고 검토하거나 QA 문서에 연결하기 좋다.
 
 ```powershell
-C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure "C:\project\sample.py"
+C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 structure "C:\project\sample.py"
 ```
 
 ### JSON
@@ -94,7 +94,7 @@ C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure "C:\project\sample.py"
 자동화 프로그램에서 읽거나 기능·TC 매핑에 사용할 때 선택한다.
 
 ```powershell
-C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure `
+C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 structure `
   "C:\project\sample.py" `
   --format json
 ```
@@ -102,7 +102,7 @@ C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure `
 자동 저장 위치:
 
 ```text
-C:\sk-encoa\QA_train\AST\reports\structure\sample_ast_structure.json
+C:\codes\QA_train\streamlit\reports\structure\sample_ast_structure.json
 ```
 
 ### AST 트리형
@@ -110,14 +110,14 @@ C:\sk-encoa\QA_train\AST\reports\structure\sample_ast_structure.json
 트리형은 전용 `_Tree` 실행 파일을 사용한다.
 
 ```powershell
-C:\sk-encoa\QA_train\AST\run_ast_analyzer_Tree.ps1 `
+C:\codes\QA_train\streamlit\run_ast_analyzer_Tree.ps1 `
   "C:\sk-encoa\gitproject\py08-streamlit.ipynb"
 ```
 
 자동 저장 위치:
 
 ```text
-C:\sk-encoa\QA_train\AST\reports\tree\py08-streamlit_ast_tree.md
+C:\codes\QA_train\streamlit\reports\tree\py08-streamlit_ast_tree.md
 ```
 
 가공형과 트리형은 각각 독립적으로 실행하며, 서로의 결과 파일을 덩어쓰지 않는다.
@@ -207,10 +207,10 @@ AST 결과는 코드 구조 정보다. 기능 동작과 사이드 이펙트를 �
 
 ### 파일을 찾을 수 없음
 
-원본 코드가 실제로 있는 전체 경로와 `.py` 또는 `.ipynb` 확장자를 지정하고 큰따옴표로 감싼다. `C:\sk-encoa\QA_train\AST`는 분석 도구 위치이며, 원본 코드 위치가 아니다.
+원본 코드가 실제로 있는 전체 경로와 `.py` 또는 `.ipynb` 확장자를 지정하고 큰따옴표로 감싼다. `C:\codes\QA_train\streamlit`는 분석 도구 위치이며, 원본 코드 위치가 아니다.
 
 ```powershell
-C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure "C:\경로에 공백\sample.py"
+C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 structure "C:\경로에 공백\sample.py"
 ```
 
 ### `SyntaxError`가 표시됨
@@ -222,7 +222,7 @@ C:\sk-encoa\QA_train\AST\run_ast_analyzer.ps1 structure "C:\경로에 공백\sam
 다음 명령으로 전용 환경을 복구한다.
 
 ```powershell
-cd C:\sk-encoa\QA_train\AST
+cd C:\codes\QA_train\streamlit
 uv sync
 ```
 

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "features": [
+    {
+      "id": "LOGIN",
+      "name": "로그인",
+      "entry_points": [{"file": "screens.py", "symbol": "login"}],
+      "tc_ids": ["LOGIN-001", "LOGIN-BOUNDARY-001"]
+    },
+    {
+      "id": "AUTO_LOGIN",
+      "name": "자동 로그인",
+      "entry_points": [{"file": "screens.py", "symbol": "automatic_login"}],
+      "tc_ids": ["AUTO-LOGIN-001"]
+    },
+    {
+      "id": "INVENTORY",
+      "name": "인벤토리",
+      "entry_points": [{"file": "screens.py", "symbol": "open_inventory"}],
+      "tc_ids": ["INVENTORY-001"]
+    }
+  ]
+}

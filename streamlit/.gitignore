@@ -1,0 +1,12 @@
+.venv/
+.web_runs/
+.test_tmp/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.py[cod]
+*.md.tmp
+*.json.tmp
+reports/compare/
+reports/conversion/
