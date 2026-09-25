@@ -672,7 +672,7 @@ wheels = [
 ]
 
 [[package]]
-name = "qa-ast-analyzer"
+name = "qa-compare-web"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

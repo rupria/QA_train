@@ -18,6 +18,7 @@ from uuid import uuid4
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from ast_runtime import AST_ROOT
 import qa_web_service as service
 from code_comparison import build_comparison
 

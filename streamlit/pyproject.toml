@@ -1,7 +1,7 @@
 [project]
-name = "qa-ast-analyzer"
+name = "qa-compare-web"
 version = "0.1.0"
-description = "Streamlit QA code comparison and Python AST impact analyzer"
+description = "Streamlit UI for the QA comparison engine in ../AST"
 requires-python = ">=3.12"
 dependencies = [
     "streamlit>=1.64,<2",

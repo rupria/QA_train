@@ -1,0 +1,9 @@
+[project]
+name = "qa-ast-analyzer"
+version = "0.1.0"
+description = "Python AST analysis, input conversion, and QA impact comparison engine"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false

@@ -1,8 +1,12 @@
 param([ValidateRange(1024,65535)][int]$Port = 8501)
 $ErrorActionPreference = 'Stop'
 $pythonPath = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
+$astAnalyzer = Join-Path (Split-Path -Parent $PSScriptRoot) 'AST\ast_analyzer.py'
 if (-not (Test-Path -LiteralPath $pythonPath)) {
     throw '먼저 streamlit 폴더에서 uv sync를 실행하세요.'
+}
+if (-not (Test-Path -LiteralPath $astAnalyzer)) {
+    throw "AST 분석 엔진을 찾을 수 없습니다: $astAnalyzer"
 }
 Push-Location -LiteralPath $PSScriptRoot
 try {

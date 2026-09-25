@@ -11,7 +11,7 @@
 PowerShell에서:
 
 ```powershell
-cd C:\codes\QA_train\streamlit
+cd C:\codes\QA_train\AST
 .\run_ast_analyzer.ps1 compare `
   .\examples\code_compare\base `
   .\examples\code_compare\target `
@@ -123,7 +123,7 @@ Streamlit의 **비교** 탭에서 Ver.A·Ver.B의 코드 영향 비교를 마친
 
 상위 호출자의 발견은 기존 호출그래프가 확인한 범위에 한정됩니다. 단순 지역 생성자 추정은 이미 도달한 scope 안의 후속 전달에서만 사용하며 receiver 별칭·인자 전달 이후의 메서드 추적은 중단합니다. 미표시 연결은 실제 연결이 없다는 증거가 아닙니다.
 
-자세한 조작 방법은 [WEB_GUIDE.md](WEB_GUIDE.md)를 참고하세요.
+자세한 조작 방법은 [Streamlit 웹 가이드](../streamlit/WEB_GUIDE.md)를 참고하세요.
 
 ## 6. 도구 검증
 

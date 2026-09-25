@@ -15,6 +15,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from ast_runtime import AST_ROOT
 import artifact_conversion as conversion
 import qa_web_service as web
 

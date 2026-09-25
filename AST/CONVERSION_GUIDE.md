@@ -13,7 +13,7 @@ Python 3.12 이상과 표준 라이브러리를 사용합니다. Git 입력에�
 로컬 프로젝트의 현재 파일을 보관:
 
 ```powershell
-C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 convert "C:\received\project" `
+C:\codes\QA_train\AST\run_ast_analyzer.ps1 convert "C:\received\project" `
   --output "C:\QA_inputs\local_v2"
 ```
 
@@ -22,7 +22,7 @@ C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 convert "C:\received\project" `
 로컬에 연결된 Git 저장소의 특정 버전:
 
 ```powershell
-C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 convert "C:\project_repo" `
+C:\codes\QA_train\AST\run_ast_analyzer.ps1 convert "C:\project_repo" `
   --kind git --ref "v1.0" --source-root "src" `
   --output "C:\QA_inputs\git_v1"
 ```
@@ -32,7 +32,7 @@ Git 입력은 지정 ref를 정확한 커밋 SHA로 고정하고 해당 트리�
 엔진 프로젝트:
 
 ```powershell
-C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 convert "C:\received\UnityProject" `
+C:\codes\QA_train\AST\run_ast_analyzer.ps1 convert "C:\received\UnityProject" `
   --kind engine --output "C:\QA_inputs\engine_v2"
 ```
 
@@ -41,7 +41,7 @@ Unity·Unreal·Godot의 프로젝트 표식에서 엔진 종류를 식별합니�
 APK:
 
 ```powershell
-C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 convert "C:\received\game.apk" `
+C:\codes\QA_train\AST\run_ast_analyzer.ps1 convert "C:\received\game.apk" `
   --output "C:\QA_inputs\apk_v2"
 ```
 
@@ -50,7 +50,7 @@ APK는 ZIP 구조를 검사해 파일을 추출하고 DEX·managed 코드·nativ
 설치된 JADX로 DEX 복원 후보도 생성하려면:
 
 ```powershell
-C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 convert "C:\received\game.apk" `
+C:\codes\QA_train\AST\run_ast_analyzer.ps1 convert "C:\received\game.apk" `
   --jadx "C:\tools\jadx\lib\jadx-cli.jar" `
   --output "C:\QA_inputs\apk_v2_with_java"
 ```
@@ -60,7 +60,7 @@ C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 convert "C:\received\game.apk" 
 ## IPA 입력
 
 ```powershell
-C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 convert "C:\received\game.ipa" `
+C:\codes\QA_train\AST\run_ast_analyzer.ps1 convert "C:\received\game.ipa" `
   --output "C:\QA_inputs\ipa_v2"
 ```
 
@@ -91,7 +91,7 @@ IPA 역시 `package_payload`이고 `python_ast`, `original_source`, `restored_so
 Python 원본이 포함된 `prepared` 스냅샷 폴더 두 개를 현재 비교기에 바로 넣을 수 있습니다. 변환 manifest를 읽어 `content`를 분석하고 Git SHA 등 출처를 보고서에 남깁니다.
 
 ```powershell
-C:\codes\QA_train\streamlit\run_ast_analyzer.ps1 compare `
+C:\codes\QA_train\AST\run_ast_analyzer.ps1 compare `
   "C:\QA_inputs\git_v1" "C:\QA_inputs\local_v2" `
   --features "C:\QA_inputs\features.json"
 ```
@@ -105,7 +105,7 @@ APK와 Git을 비교할 다음 단계는 Git 커밋을 같은 환경/설정으�
 ## 예제 입력 생성과 검증
 
 ```powershell
-cd C:\codes\QA_train\streamlit
+cd C:\codes\QA_train\AST
 .\.venv\Scripts\python.exe -B .\examples\conversion\create_demo_inputs.py "C:\QA_inputs\fixture_inputs"
 .\run_ast_analyzer.ps1 convert "C:\QA_inputs\fixture_inputs\unity_project" --output "C:\QA_inputs\fixture_engine"
 .\run_ast_analyzer.ps1 convert "C:\QA_inputs\fixture_inputs\package_fixture.apk" --output "C:\QA_inputs\fixture_apk"

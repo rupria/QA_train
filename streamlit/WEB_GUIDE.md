@@ -88,7 +88,7 @@ APK·IPA 파일 구성 비교에서는 이 탭의 흐름 해석을 실행할 수
 
 Git 소스와 패키지를 비교하려면 해당 Git 버전을 같은 빌드 설정으로 만든 패키지 또는 양쪽 원본 프로젝트가 필요하다. 현재 패키지에서 원본 코드를 자동 복원하거나 기능을 확정하지 않는다. 웹 화면에서는 임의 실행 도구/JADX 경로를 받지 않는다.
 
-APK의 바이너리 AndroidManifest.xml을 해석하지 않는다. IPA 메타데이터는 선언 정보이며 서명·설치·실행 검증은 수행하지 않는다. 엔진을 실행하지 않는다. 세부 한계는 `CONVERSION_GUIDE.md`, `COMPARISON_GUIDE.md`를 참고한다.
+APK의 바이너리 AndroidManifest.xml을 해석하지 않는다. IPA 메타데이터는 선언 정보이며 서명·설치·실행 검증은 수행하지 않는다. 엔진을 실행하지 않는다. 세부 한계는 [`CONVERSION_GUIDE.md`](../AST/CONVERSION_GUIDE.md), [`COMPARISON_GUIDE.md`](../AST/COMPARISON_GUIDE.md)를 참고한다.
 
 ## 저장과 운영
 
@@ -98,8 +98,16 @@ APK의 바이너리 AndroidManifest.xml을 해석하지 않는다. IPA 메타데
 
 ## 검증
 
+AST 코어와 Streamlit 웹 프로젝트를 각각 검증한다.
+
 ```powershell
+cd C:\codes\QA_train\AST
+uv sync
+.\.venv\Scripts\python.exe -X utf8 -B -m unittest discover -s tests -v
+
+cd C:\codes\QA_train\streamlit
+uv sync
 .\.venv\Scripts\python.exe -X utf8 -B -m unittest discover -s tests -v
 ```
 
-백엔드 변환·비교 테스트와 Streamlit AppTest를 함께 실행한다. APK/IPA 테스트 fixture는 설치 가능한 실제 앱이 아닌 합성 ZIP이다.
+APK/IPA 테스트 fixture는 설치 가능한 실제 앱이 아닌 합성 ZIP이다.

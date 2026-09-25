@@ -13,6 +13,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from ast_runtime import AST_ROOT
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from streamlit.testing.v1 import AppTest
 import artifact_conversion as conversion

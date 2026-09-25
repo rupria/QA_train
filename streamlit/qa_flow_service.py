@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ast_runtime import AST_ROOT
+
 from code_comparison import code_block, comparison_input, table_value
 from qa_web_service import _session, _verified
 

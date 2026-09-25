@@ -8,4 +8,5 @@ __pycache__/
 *.py[cod]
 *.md.tmp
 *.json.tmp
-.streamlit/secrets.toml
+reports/compare/
+reports/conversion/

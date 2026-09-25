@@ -9,6 +9,8 @@ from pathlib import Path
 
 import streamlit as st
 
+from ast_runtime import AST_ROOT
+
 from code_comparison import code_block, markdown_comparison
 from flow_ui import flow_view
 from qa_web_service import (

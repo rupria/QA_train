@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from ast_runtime import AST_ROOT
+
 import artifact_conversion as conversion
 from code_comparison import build_comparison
 
