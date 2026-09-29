@@ -4,19 +4,23 @@ Keep this file in Git. Comparison checks use its history instead of creating
 and deleting a new fixture for every update.
 """
 
-FIXTURE_REVISION = 1
+FIXTURE_REVISION = 2
 DEFAULT_LIMIT = 2
 
 
 class TestItem:
     """Small domain object with a method call for AST relationship checks."""
 
-    def __init__(self, name: str, active: bool = True):
+    def __init__(self, name: str, active: bool = True, category: str = "general"):
         self.name = name
         self.active = active
+        self.category = category
 
     def display_name(self) -> str:
         return self.name.strip()
+
+    def label(self) -> str:
+        return f"{self.category.lower()}:{self.display_name()}"
 
 
 def select_active(items: list[TestItem], limit: int = DEFAULT_LIMIT) -> list[str]:
@@ -24,7 +28,7 @@ def select_active(items: list[TestItem], limit: int = DEFAULT_LIMIT) -> list[str
     selected = []
     for item in items:
         if item.active:
-            selected.append(item.display_name())
+            selected.append(item.label())
         if len(selected) >= limit:
             break
     return selected
@@ -37,4 +41,5 @@ def build_summary(items: list[TestItem]) -> dict[str, object]:
         "revision": FIXTURE_REVISION,
         "count": len(names),
         "names": names,
+        "limit_reached": len(names) == DEFAULT_LIMIT,
     }
