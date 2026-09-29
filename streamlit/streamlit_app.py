@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import difflib
+import importlib
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,14 @@ from ast_runtime import AST_ROOT
 from code_comparison import code_block, markdown_comparison
 from ast_ui import ast_view
 from flow_ui import flow_view
+import qa_web_service as _qa_web_service
+
+# Streamlit Cloud can rerun this file without restarting Python. If a deploy
+# adds a service API, refresh the already-cached module before importing it.
+if not hasattr(_qa_web_service, "list_git_branches"):
+    importlib.invalidate_caches()
+    _qa_web_service = importlib.reload(_qa_web_service)
+
 from qa_web_service import (
     clear_session, compare_inventory, compare_prepared, make_snapshot_download, new_session,
     list_git_branches, list_git_history, prepare_git, prepare_local, prepare_upload,
