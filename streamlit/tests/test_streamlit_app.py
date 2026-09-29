@@ -322,7 +322,7 @@ class StreamlitAppTests(unittest.TestCase):
     def test_single_ast_upload_is_independent_and_not_repeated_by_view_changes(self):
         import ast_ui
         import qa_ast_service
-        self.assertIn("_AST", [tab.label for tab in self.app.tabs])
+        self.assertEqual([tab.label for tab in self.app.tabs], ["비교", "AST 연결·해석", "스냅샷", "_AST"])
         self.assertTrue(self.app.button(key="run_ast").disabled)
         with self.upload_patch({"ast_upload": Uploaded("app.py", b"def f(x):\n    return x + 1\n")}), \
                 patch.object(ast_ui, "analyze_prepared", wraps=qa_ast_service.analyze_prepared) as analyze, \
@@ -333,7 +333,7 @@ class StreamlitAppTests(unittest.TestCase):
             self.assert_clean()
             result = self.app.session_state.ast_analysis
             self.assertEqual(result["report"]["status"], "complete")
-            self.assertIn("FunctionDef(", self.app.code[0].value)
+            self.assertTrue(any("FunctionDef(" in item.value for item in self.app.code))
             self.assertIsNone(self.app.session_state.pair_analysis)
             self.assertEqual((analyze.call_count, prepare.call_count), (1, 1))
             self.app.segmented_control(key="ast_output_view").set_value("정리형").run()
@@ -357,6 +357,49 @@ class StreamlitAppTests(unittest.TestCase):
             self.assertTrue(self.app.warning)
             self.assertTrue(any(widget.key == "ast_download_ast_tree.md" for widget in self.app.get("download_button")))
             self.assertIsNone(self.app.session_state.pair_analysis)
+
+    def test_file_tree_selection_shows_corresponding_ast_and_data_without_reanalysis(self):
+        import ast_ui
+        import qa_ast_service
+        payload = io.BytesIO()
+        with zipfile.ZipFile(payload, "w") as archive:
+            archive.writestr("src/alpha.py", "def alpha():\n    return 1\n")
+            archive.writestr("src/beta.py", "def beta():\n    return 2\n")
+            archive.writestr("data/items.csv", "id\n1\n")
+            archive.writestr("settings.json", "{}")
+            archive.writestr("notes.ipynb", json.dumps({"cells": [
+                {"cell_type": "code", "source": "first = 1"},
+                {"cell_type": "markdown", "source": "note"},
+                {"cell_type": "code", "source": "second = 2"},
+            ]}))
+        with self.upload_patch({"ast_upload": Uploaded("project.zip", payload.getvalue())}), \
+                patch.object(ast_ui, "analyze_prepared", wraps=qa_ast_service.analyze_prepared) as analyze:
+            self.app.run()
+            self.app.button(key="run_ast").click().run()
+            self.assert_clean()
+            self.assertTrue(any("├── data/\n│   └── items.csv" in item.value for item in self.app.code))
+            self.assertIn("settings.json", self.app.selectbox(key="ast_file_path").options)
+            self.app.selectbox(key="ast_file_path").select("src/beta.py").run()
+            self.assert_clean()
+            self.assertTrue(any("name='beta'" in item.value for item in self.app.code))
+            self.assertFalse(any("name='alpha'" in item.value for item in self.app.code))
+            self.app.selectbox(key="ast_file_path").select("notes.ipynb").run()
+            self.assertEqual(self.app.selectbox(key="ast_tree_path").options, ["notes.ipynb#cell-1", "notes.ipynb#cell-3"])
+            self.app.selectbox(key="ast_tree_path").select("notes.ipynb#cell-3").run()
+            self.assertTrue(any("id='second'" in item.value for item in self.app.code))
+            self.app.selectbox(key="ast_file_path").select("data/items.csv").run()
+            self.assert_clean()
+            self.assertTrue(any("Python AST 대상이 아닙니다" in item.value for item in self.app.info))
+            self.assertFalse(any(item.value.startswith("Module(") for item in self.app.code))
+            details = next(item.value for item in self.app.dataframe if "상대 경로" in item.value.columns).iloc[0]
+            self.assertEqual(details["상대 경로"], "data/items.csv")
+            self.assertEqual(details["종류"], "데이터·리소스")
+            self.assertEqual(details["크기 (bytes)"], 5)
+            self.assertTrue(any(widget.key == "ast_download_file_tree.md" for widget in self.app.get("download_button")))
+            self.app.selectbox(key="ast_file_path").select("src/alpha.py").run()
+            self.assert_clean()
+            self.assertTrue(any("name='alpha'" in item.value for item in self.app.code))
+            self.assertEqual(analyze.call_count, 1)
 
     def test_single_ast_reuses_prepared_source_without_copying_it_again(self):
         manifest = self.source_snapshots()[0]

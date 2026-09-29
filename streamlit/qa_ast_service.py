@@ -22,6 +22,44 @@ from code_snapshot import load_snapshot
 from qa_web_service import MAX_DOWNLOAD_BYTES, _session, _verified
 
 
+def project_files(records: list[dict], trees: list[dict]) -> tuple[list[dict], str]:
+    """Use the verified snapshot inventory, including data and configuration files."""
+    files = {record["path"]: {**record, "ast_paths": []} for record in records}
+    for entry in trees:
+        path = entry["path"]
+        container = path if path in files else path.rpartition("#cell-")[0]
+        if container in files:
+            files[container]["ast_paths"].append(path)
+    hierarchy = {}
+    for path in files:
+        node = hierarchy
+        parts = path.split("/")
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node[parts[-1]] = None
+
+    # Iterative traversal also handles deeply nested project folders.
+    lines = ["./"]
+    pending = [(hierarchy, "")]
+    while pending:
+        item = pending.pop()
+        if isinstance(item, str):
+            lines.append(item)
+            continue
+        node, prefix = item
+        names = sorted(node, key=lambda name: (node[name] is None, name.casefold(), name))
+        for index in range(len(names) - 1, -1, -1):
+            name = names[index]
+            last = index == len(names) - 1
+            child = node[name]
+            line = prefix + ("└── " if last else "├── ") + name
+            if child is not None:
+                line += "/"
+                pending.append((child, prefix + ("    " if last else "│   ")))
+            pending.append(line)
+    return [files[path] for path in sorted(files)], "\n".join(lines)
+
+
 def analyze_prepared(session, manifest: dict) -> dict:
     session = _session(session)
     stored, output = _verified(manifest)
@@ -73,6 +111,7 @@ def analyze_prepared(session, manifest: dict) -> dict:
     if not modules:
         warnings.append("분석할 Python 코드 셀이 없습니다.")
     warnings = list(dict.fromkeys(warnings))
+    files, file_tree = project_files(stored["files"], trees)
     report = {
         "mode": "structure", "source": label, "root": source.get("source_root", "."),
         "run_id": uuid.uuid4().hex, "created_at": datetime.now(timezone.utc).isoformat(),
@@ -81,6 +120,7 @@ def analyze_prepared(session, manifest: dict) -> dict:
         "input": {key: source[key] for key in ("kind", "uploaded_name", "remote_url", "commit_sha", "source_root") if key in source},
         "status": "incomplete" if errors or not modules else "complete",
         "module_count": len(modules), "modules": modules, "errors": errors,
+        "file_count": len(files), "files": files,
         "warnings": warnings, "skipped_files": stored.get("skipped", []),
     }
     tree_md = "\n".join(lines) + "\n"
@@ -89,6 +129,12 @@ def analyze_prepared(session, manifest: dict) -> dict:
         structure_md += "\n## 분석 범위·확인 사항\n\n" + "\n".join("- " + item for item in warnings) + "\n"
     documents = {
         "ast_tree.md": tree_md,
+        "file_tree.md": "\n".join([
+            "# Project File Tree", "", "- 분석 경로: " + label.replace("\n", " "),
+            "- 분석 루트: " + report["root"], "- 파일 수: " + str(len(files)), "",
+            "준비된 스냅샷의 상대 경로입니다. 빈 폴더와 제외된 파일은 포함하지 않습니다.",
+            "", code_block(file_tree), "",
+        ]),
         "ast_structure.md": structure_md,
         "ast_structure.json": json.dumps(report, ensure_ascii=False, indent=2) + "\n",
     }
@@ -102,5 +148,5 @@ def analyze_prepared(session, manifest: dict) -> dict:
     with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for filename, text in documents.items():
             archive.writestr(filename, text.encode("utf-8"))
-    return {"report": report, "trees": trees, "documents": documents,
+    return {"report": report, "trees": trees, "file_tree": file_tree, "documents": documents,
             "zip": bundle.getvalue(), "output_path": str(directory)}

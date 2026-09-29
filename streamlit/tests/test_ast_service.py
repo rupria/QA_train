@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -107,6 +108,51 @@ class SingleASTServiceTests(unittest.TestCase):
         result = self.analyze("app.py", '# coding: cp949\nname = "한글"\n'.encode("cp949"))
         self.assertEqual(result["report"]["status"], "complete")
         self.assertIn("한글", result["trees"][0]["tree"])
+
+    def test_project_file_tree_keeps_data_configuration_and_ast_links(self):
+        source = "def run():\n    return 42\n"
+        data = "id,name\n1,example\n"
+        notebook = json.dumps({"cells": [
+            {"cell_type": "code", "source": "x = 1"},
+            {"cell_type": "markdown", "source": "note"},
+            {"cell_type": "code", "source": "def broken(:"},
+        ]})
+        result = self.analyze("project.zip", self.project({
+            "src/main.py": source, "data/items.csv": data,
+            "data/settings.json": "{}", "README.md": "example",
+            "src/demo#cell-name.ipynb": notebook,
+        }))
+        self.assertEqual(result["file_tree"],
+            "./\n├── data/\n│   ├── items.csv\n│   └── settings.json\n"
+            "├── src/\n│   ├── demo#cell-name.ipynb\n│   └── main.py\n└── README.md")
+        files = {entry["path"]: entry for entry in result["report"]["files"]}
+        self.assertEqual(result["report"]["file_count"], 5)
+        self.assertEqual(files["data/items.csv"]["category"], "asset_or_data")
+        self.assertEqual(files["data/settings.json"]["category"], "configuration")
+        self.assertEqual(files["data/items.csv"]["sha256"], hashlib.sha256(data.encode()).hexdigest())
+        self.assertEqual(files["data/items.csv"]["size"], len(data.encode()))
+        self.assertEqual(files["data/items.csv"]["ast_paths"], [])
+        self.assertEqual(files["src/main.py"]["ast_paths"], ["src/main.py"])
+        self.assertEqual(files["src/demo#cell-name.ipynb"]["ast_paths"],
+                         ["src/demo#cell-name.ipynb#cell-1", "src/demo#cell-name.ipynb#cell-3"])
+        self.assertIn("```text\n" + result["file_tree"], result["documents"]["file_tree.md"])
+        self.assertNotIn("items.csv", result["documents"]["ast_tree.md"])
+        self.assertEqual(json.loads(result["documents"]["ast_structure.json"])["files"], list(files.values()))
+        with zipfile.ZipFile(io.BytesIO(result["zip"])) as archive:
+            self.assertEqual(archive.read("file_tree.md").decode(), result["documents"]["file_tree.md"])
+        self.assertEqual(next(entry["tree"] for entry in result["trees"] if entry["path"] == "src/main.py"),
+                         ast.dump(ast.parse(source), indent=2))
+
+    def test_modified_data_file_is_rejected_before_tree_generation(self):
+        manifest = service.prepare_upload(self.session, "project.zip", self.project({"app.py": "x = 1", "data/items.csv": "id\n1"}))
+        (Path(manifest["output_path"]) / "content/data/items.csv").write_text("id\n2")
+        with self.assertRaisesRegex(ValueError, "수정"):
+            ast_service.analyze_prepared(self.session, manifest)
+
+    def test_empty_notebook_remains_a_file_without_ast_cells(self):
+        result = self.analyze("empty.ipynb", b'{"cells": []}')
+        self.assertEqual(result["file_tree"], "./\n└── empty.ipynb")
+        self.assertEqual(result["report"]["files"][0]["ast_paths"], [])
 
 
 if __name__ == "__main__":

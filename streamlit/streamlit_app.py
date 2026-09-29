@@ -445,19 +445,19 @@ def main():
         st.caption("Python: 단일 AST · 코드 영향 분석\n\n다른 소스·패키지: 파일 구성 비교")
     st.title("QA compare")
     st.write("단일 소스의 AST를 만들거나 Ver.A·Ver.B의 변경 내용을 비교하세요.")
-    compare_tab, ast_tab, flow_tab, snapshot_tab = st.tabs(
-        ["비교", "_AST", "AST 연결·해석", "스냅샷"], key="work_tabs",
+    compare_tab, flow_tab, snapshot_tab, ast_tab = st.tabs(
+        ["비교", "AST 연결·해석", "스냅샷", "_AST"], key="work_tabs",
     )
     # Keep input widgets mounted so uploads and mapping survive tab navigation.
     # Preparation and analysis remain explicit button actions.
     with compare_tab:
         pair_view()
-    with ast_tab:
-        ast_view(input_side, prepare_side, input_signature)
     with flow_tab:
         flow_view()
     with snapshot_tab:
         snapshots_view()
+    with ast_tab:
+        ast_view(input_side, prepare_side, input_signature)
 
 
 if __name__ == "__main__":
