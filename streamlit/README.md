@@ -4,6 +4,8 @@
 
 [Streamlit Cloud 접속](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/). 실행 파일은 `streamlit/streamlit_app.py`, 브랜치는 `main`, Python 버전은 3.12다. Cloud에서는 `QA_WEB_ALLOW_LOCAL="0"`으로 파일 업로드·공개 GitHub 입력을 사용한다.
 
+Git 입력은 저장소 주소에서 브랜치 목록을 읽어 사용자가 브랜치를 선택한 뒤 해당 브랜치의 최근 커밋을 보여 준다. 이 흐름은 `비교`의 Ver.A·Ver.B와 맨 오른쪽 `_AST`에 공통 적용된다. 같은 저장소 주소는 세션 안에서 조회 결과를 공유하고 서로 다른 주소는 각자 목록을 유지한다. 태그·SHA·`HEAD~1`처럼 목록 밖의 ref는 **직접 입력**을 사용한다.
+
 ## 환경 준비와 실행
 
 ```powershell

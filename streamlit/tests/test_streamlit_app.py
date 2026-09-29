@@ -212,10 +212,10 @@ class StreamlitAppTests(unittest.TestCase):
         self.assertEqual(self.app.session_state.snapshots, [])
         self.assertFalse(self.app.session_state.pair_analysis)
 
-    def create_git_pair(self, filename="app.py"):
-        repo = self.work / "repository"
+    def create_git_pair(self, filename="app.py", name="repository"):
+        repo = self.work / name
         repo.mkdir()
-        hooks, config = self.work / "empty-hooks", self.work / "empty-config"
+        hooks, config = self.work / f"{name}-empty-hooks", self.work / f"{name}-empty-config"
         hooks.mkdir()
         config.write_text("", encoding="ascii")
         env = conversion._git_env()
@@ -246,6 +246,7 @@ class StreamlitAppTests(unittest.TestCase):
 
     def query_git(self, side, repo):
         self.git_side(side, repo)
+        self.app.button(key=f"{side}_load_branches").click().run()
         self.app.button(key=f"{side}_load_history").click().run()
         self.assert_clean()
 
@@ -253,10 +254,15 @@ class StreamlitAppTests(unittest.TestCase):
         repo, previous, latest = self.create_git_pair()
         self.git_side("base", repo)
         self.git_side("target", repo)
-        with patch.object(service, "list_git_history", wraps=service.list_git_history) as history:
+        with patch.object(service, "list_git_branches", wraps=service.list_git_branches) as branches, \
+                patch.object(service, "list_git_history", wraps=service.list_git_history) as history:
+            self.app.button(key="target_load_branches").click().run()
             self.app.button(key="target_load_history").click().run()
             self.assert_clean()
+            self.assertEqual(branches.call_count, 1)
             self.assertEqual(history.call_count, 1)
+        self.assertEqual(self.app.selectbox(key="base_branch").value, "main")
+        self.assertEqual(self.app.selectbox(key="target_branch").value, "main")
         self.assertEqual(self.app.selectbox(key="base_commit").value, previous)
         self.assertEqual(self.app.selectbox(key="target_commit").value, latest)
         self.app.button(key="run_pair").click().run()
@@ -295,6 +301,21 @@ class StreamlitAppTests(unittest.TestCase):
         self.assertFalse(any(widget.key == "base_commit" for widget in self.app.selectbox))
         self.assertTrue(self.app.button(key="run_pair").disabled)
 
+    def test_different_git_repositories_keep_independent_branch_lists(self):
+        first, _, _ = self.create_git_pair(name="first-repository")
+        second, _, _ = self.create_git_pair(name="second-repository")
+        conversion._git(conversion._git_executable(), first, ["branch", "release-a"])
+        conversion._git(conversion._git_executable(), second, ["branch", "release-b"])
+        self.git_side("base", first)
+        self.git_side("target", second)
+        with patch.object(service, "list_git_branches", wraps=service.list_git_branches) as branches:
+            self.app.button(key="base_load_branches").click().run()
+            self.app.button(key="target_load_branches").click().run()
+            self.assertEqual(branches.call_count, 2)
+        self.assertEqual(self.app.selectbox(key="base_branch").options, ["main", "release-a"])
+        self.assertEqual(self.app.selectbox(key="target_branch").options, ["main", "release-b"])
+        self.assertTrue(self.app.button(key="run_pair").disabled)
+
     def test_same_git_sha_is_blocked(self):
         repo, _, latest = self.create_git_pair()
         self.query_git("base", repo)
@@ -311,8 +332,8 @@ class StreamlitAppTests(unittest.TestCase):
                 self.assertNotIn("로컬 경로", self.app.segmented_control(key=f"{side}_method").options)
             self.app.segmented_control(key="base_method").set_value("Git").run()
             self.app.text_input(key="base_location").set_value(str(self.work)).run()
-            if any(item.key == "base_load_history" for item in self.app.button):
-                button = self.app.button(key="base_load_history")
+            if any(item.key == "base_load_branches" for item in self.app.button):
+                button = self.app.button(key="base_load_branches")
                 if not button.disabled:
                     button.click().run()
             self.assert_clean()
@@ -438,7 +459,9 @@ class StreamlitAppTests(unittest.TestCase):
         repo, _, latest = self.create_git_pair()
         self.app.segmented_control(key="ast_method").set_value("Git").run()
         self.app.text_input(key="ast_location").set_value(str(repo)).run()
+        self.app.button(key="ast_load_branches").click().run()
         self.app.button(key="ast_load_history").click().run()
+        self.assertEqual(self.app.selectbox(key="ast_branch").value, "main")
         self.assertEqual(self.app.selectbox(key="ast_commit").value, latest)
         self.assertEqual(self.app.selectbox(key="ast_commit").label, "분석할 커밋")
         self.app.button(key="run_ast").click().run()

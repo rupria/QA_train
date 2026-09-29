@@ -16,7 +16,7 @@ from ast_ui import ast_view
 from flow_ui import flow_view
 from qa_web_service import (
     clear_session, compare_inventory, compare_prepared, make_snapshot_download, new_session,
-    list_git_history, prepare_git, prepare_local, prepare_upload,
+    list_git_branches, list_git_history, prepare_git, prepare_local, prepare_upload,
 )
 
 LABELS = {"local": "로컬 소스", "engine": "엔진 프로젝트", "git": "Git", "apk": "APK", "ipa": "IPA"}
@@ -36,6 +36,7 @@ def initialize():
     st.session_state.setdefault("pair_analysis", None)
     st.session_state.setdefault("ast_analysis", None)
     st.session_state.setdefault("history_pool", {})
+    st.session_state.setdefault("branch_pool", {})
     st.session_state.setdefault("flow_result", None)
     if "current_pair_signature" not in st.session_state and st.session_state.pair_analysis:
         st.session_state.current_pair_signature = st.session_state.pair_analysis["signature"]
@@ -120,19 +121,39 @@ def input_side(side, title, *, ast_only=False):
 
 
 def git_version(side, location, *, ast_only=False):
-    mode = st.segmented_control("버전 선택", ["커밋 목록", "직접 입력"], default="커밋 목록", required=True, key=f"{side}_git_mode", persist_state="session")
+    mode = st.segmented_control("버전 선택", ["브랜치·커밋 선택", "직접 입력"], default="브랜치·커밋 선택", required=True, key=f"{side}_git_mode", persist_state="session")
     if mode == "직접 입력":
         ref = st.text_input("브랜치·태그·커밋", value="HEAD", key=f"{side}_ref", persist_state="session").strip()
         st.caption("분석할 브랜치·태그·커밋 하나를 지정하세요. 최신 버전은 HEAD입니다." if ast_only else "직전 커밋은 HEAD~1, 최신 커밋은 HEAD로 지정할 수 있습니다.")
         return {"ref": ref, "ready": bool(location and ref)}
-    history_ref = st.text_input("커밋 기록 기준", value="HEAD", help="현재 브랜치의 최신 기록은 HEAD입니다. 다른 브랜치·태그도 지정할 수 있습니다.", key=f"{side}_history_ref", persist_state="session").strip()
-    query = (location, history_ref)
+    branch_pool = st.session_state.branch_pool
+    if st.button("브랜치 목록 불러오기", icon=":material/account_tree:", key=f"{side}_load_branches", disabled=not location):
+        branch_pool.pop(location, None)
+        try:
+            with st.spinner("Git 브랜치 목록을 가져오고 있습니다."):
+                branch_pool[location] = list_git_branches(st.session_state.work_session, location)
+            # The same repository can share this branch list across Ver.A, Ver.B and _AST.
+            st.rerun()
+        except (ValueError, OSError, RuntimeError) as error:
+            st.error(f"브랜치 목록을 가져오지 못했습니다: {error}")
+    branch_result = branch_pool.get(location)
+    if not branch_result:
+        st.info("저장소를 입력하고 브랜치 목록을 불러오세요.")
+        return {"ref": None, "ready": False}
+    branches = branch_result["branches"]
+    branch_token = hashlib.sha256(repr((location, branches, branch_result["default"])).encode()).hexdigest()
+    branch_token_key, branch_key = f"{side}_branch_token", f"{side}_branch"
+    if st.session_state.get(branch_token_key) != branch_token or st.session_state.get(branch_key) not in branches:
+        st.session_state[branch_key] = branch_result["default"]
+        st.session_state[branch_token_key] = branch_token
+    branch = st.selectbox("브랜치", branches, key=branch_key, persist_state="session")
+    query = (location, branch)
     pool = st.session_state.history_pool
-    if st.button("커밋 목록 불러오기", icon=":material/history:", key=f"{side}_load_history", disabled=not (location and history_ref)):
+    if st.button("커밋 목록 불러오기", icon=":material/history:", key=f"{side}_load_history", disabled=not (location and branch)):
         pool.pop(query, None)
         try:
             with st.spinner("Git 커밋 기록을 가져오고 있습니다."):
-                pool[query] = list_git_history(st.session_state.work_session, location, ref=history_ref, limit=50)
+                pool[query] = list_git_history(st.session_state.work_session, location, ref=branch, limit=50)
             # Refresh both columns when a shared history is loaded on the right.
             st.rerun()
         except (ValueError, OSError, RuntimeError) as error:

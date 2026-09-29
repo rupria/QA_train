@@ -24,6 +24,8 @@ from code_comparison import build_comparison
 MAX_UPLOAD_BYTES = 200 * 1024**2
 MAX_DOWNLOAD_BYTES = 100 * 1024**2
 GIT_CLONE_TIMEOUT_SECONDS = 180
+GIT_REF_TIMEOUT_SECONDS = 30
+MAX_GIT_BRANCHES = 500
 UPLOAD_EXTENSIONS = {".py", ".ipynb", ".zip", ".apk", ".ipa"}
 
 
@@ -234,6 +236,77 @@ def prepare_git(session, location, ref="HEAD", source_root=".") -> dict:
     except Exception:
         _cleanup_job(folder)
         raise
+
+
+def list_git_branches(session, location) -> dict:
+    """Return selectable branch names and the repository's default branch.
+
+    Remote GitHub repositories use ls-remote, so source objects are not cloned.
+    Local repositories expose local branches only. No checkout or hook is run.
+    """
+    session = _session(session)
+    if location is None or isinstance(location, str) and not location.strip():
+        raise ValueError("GitHub 주소 또는 로컬 저장소 경로를 지정하세요.")
+    value, folder, default = str(location), None, None
+    try:
+        git = conversion._git_executable()
+        if "://" in value:
+            url = _github_url(value)
+            folder, _ = _job(session)
+            config, hooks = folder / "empty-git-config", folder / "empty-hooks"
+            config.write_text("", encoding="ascii")
+            hooks.mkdir()
+            env = conversion._git_env()
+            env.update(GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="Never", GIT_CONFIG_NOSYSTEM="1",
+                       GIT_CONFIG_GLOBAL=str(config), GIT_CONFIG_COUNT="0")
+            for name in ("GIT_CONFIG_PARAMETERS", "GIT_SSL_NO_VERIFY", "GIT_ASKPASS", "SSH_ASKPASS"):
+                env.pop(name, None)
+            args = [git, "-c", f"core.hooksPath={hooks}", "-c", "credential.helper=", "-c", "core.askPass=",
+                    "-c", "http.sslVerify=true", "-c", "http.followRedirects=false", "-c", "protocol.ext.allow=never",
+                    "-c", "protocol.file.allow=never", "ls-remote", "--symref", "--", url, "HEAD", "refs/heads/*"]
+            try:
+                result = subprocess.run(args, shell=False, env=env, stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE, timeout=GIT_REF_TIMEOUT_SECONDS)
+            except subprocess.TimeoutExpired as exc:
+                raise ValueError("GitHub 브랜치 조회 제한 시간이 지났습니다. 네트워크를 확인하세요.") from exc
+            if result.returncode:
+                raise ValueError("GitHub 브랜치 목록을 가져오지 못했습니다: "
+                                 + result.stderr[-3000:].decode("utf-8", "replace"))
+            lines = result.stdout.decode("utf-8", "strict").splitlines()
+            branches = []
+            for line in lines:
+                if line.startswith("ref: refs/heads/") and line.endswith("\tHEAD"):
+                    default = line[len("ref: refs/heads/"):-len("\tHEAD")]
+                elif "\trefs/heads/" in line:
+                    sha, branch = line.split("\trefs/heads/", 1)
+                    if not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", sha):
+                        raise ValueError("GitHub 브랜치 목록의 SHA가 올바르지 않습니다.")
+                    branches.append(branch)
+        else:
+            if os.environ.get("QA_WEB_ALLOW_LOCAL", "1") == "0":
+                raise ValueError("이 서버는 로컬 저장소 경로 입력을 허용하지 않습니다.")
+            raw = Path(value).expanduser().absolute()
+            if not raw.is_dir() or conversion._is_reparse(raw):
+                raise ValueError("실제 로컬 Git 저장소 폴더를 지정하세요. 링크/junction은 지원하지 않습니다.")
+            repo = raw.resolve()
+            payload = conversion._git(git, repo, ["for-each-ref", "--format=%(refname:strip=2)", "refs/heads"])
+            branches = payload.decode("utf-8", "strict").splitlines()
+            default = conversion._git(git, repo, ["symbolic-ref", "--quiet", "--short", "HEAD"], check=False).decode("utf-8", "strict").strip() or None
+        branches = sorted(set(branches), key=lambda name: (name.casefold(), name))
+        if not branches:
+            raise ValueError("선택할 브랜치가 없습니다. 커밋이 있는 브랜치를 확인하세요.")
+        if len(branches) > MAX_GIT_BRANCHES:
+            raise ValueError(f"브랜치가 {MAX_GIT_BRANCHES}개를 초과합니다. 직접 입력에서 브랜치·태그·커밋을 지정하세요.")
+        if default not in branches:
+            default = branches[0]
+        return {"branches": branches, "default": default}
+    except UnicodeError as exc:
+        raise ValueError("UTF-8로 표시할 수 없는 Git 브랜치 이름이 있습니다.") from exc
+    except OSError as exc:
+        raise ValueError(f"Git 브랜치 목록을 읽을 수 없습니다: {exc}") from exc
+    finally:
+        if folder is not None:
+            _cleanup_job(folder)
 
 
 def list_git_history(session, location, ref="HEAD", limit=50) -> list[dict]:

@@ -212,6 +212,45 @@ class WebServiceTests(unittest.TestCase):
         self.assertIn("core.askPass=", args[0])
         self.assertEqual(result["source"]["remote_url"], "https://github.com/owner/repo.git")
 
+    def test_remote_branch_listing_uses_ls_remote_without_cloning(self):
+        payload = (b"ref: refs/heads/main\tHEAD\n" + b"a" * 40 + b"\tHEAD\n"
+                   + b"b" * 40 + b"\trefs/heads/release\n" + b"a" * 40 + b"\trefs/heads/main\n")
+        result = SimpleNamespace(returncode=0, stdout=payload, stderr=b"")
+        with mock.patch.object(service.conversion, "_git_executable", return_value="git"), \
+                mock.patch.object(service.subprocess, "run", return_value=result) as process:
+            branches = service.list_git_branches(self.session, "https://github.com/owner/repo")
+        args, kwargs = process.call_args
+        self.assertIn("ls-remote", args[0])
+        self.assertNotIn("clone", args[0])
+        self.assertIn("--symref", args[0])
+        self.assertFalse(kwargs["shell"])
+        self.assertEqual(kwargs["env"]["GIT_TERMINAL_PROMPT"], "0")
+        self.assertNotIn("GIT_ASKPASS", kwargs["env"])
+        self.assertEqual(branches, {"branches": ["main", "release"], "default": "main"})
+        self.assertEqual(list((self.session / "input").iterdir()), [])
+
+    def test_local_branch_listing_returns_sorted_branches_and_current_default(self):
+        git = service.conversion._git_executable()
+        repo = self.work / "branch-repo"
+        repo.mkdir()
+        subprocess.run([git, "-C", str(repo), "init", "--quiet", "--initial-branch=main"], check=True,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=service.conversion._git_env())
+        (repo / "app.py").write_text("x = 1\n")
+        subprocess.run([git, "-C", str(repo), "add", "app.py"], check=True, env=service.conversion._git_env())
+        subprocess.run([git, "-C", str(repo), "-c", "user.name=QA", "-c", "user.email=qa@example.invalid",
+                        "commit", "--quiet", "-m", "initial"], check=True, env=service.conversion._git_env())
+        service.conversion._git(git, repo, ["branch", "develop"])
+        self.assertEqual(service.list_git_branches(self.session, repo),
+                         {"branches": ["develop", "main"], "default": "main"})
+
+    def test_branch_listing_rejects_invalid_remote_and_local_policy(self):
+        with mock.patch.object(service.subprocess, "run") as process:
+            with self.assertRaises(ValueError):
+                service.list_git_branches(self.session, "https://github.com/owner/repo/tree/main")
+            process.assert_not_called()
+        with mock.patch.dict(service.os.environ, {"QA_WEB_ALLOW_LOCAL": "0"}), self.assertRaisesRegex(ValueError, "로컬"):
+            service.list_git_branches(self.session, self.work)
+
     def test_failed_remote_clone_cleans_only_new_session_input(self):
         sentinel = self.work / "preserved.txt"
         sentinel.write_text("keep", encoding="utf-8")
