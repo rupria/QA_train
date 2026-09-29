@@ -307,7 +307,7 @@ class StreamlitAppTests(unittest.TestCase):
         with patch.dict(os.environ, {"QA_WEB_ALLOW_LOCAL": "0"}):
             self.app = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=20).run()
             self.assert_clean()
-            for side in ("base", "target"):
+            for side in ("base", "target", "ast"):
                 self.assertNotIn("로컬 경로", self.app.segmented_control(key=f"{side}_method").options)
             self.app.segmented_control(key="base_method").set_value("Git").run()
             self.app.text_input(key="base_location").set_value(str(self.work)).run()
@@ -318,6 +318,73 @@ class StreamlitAppTests(unittest.TestCase):
             self.assert_clean()
             self.assertTrue(self.app.error or self.app.warning)
             self.assertEqual(self.app.session_state.snapshots, [])
+
+    def test_single_ast_upload_is_independent_and_not_repeated_by_view_changes(self):
+        import ast_ui
+        import qa_ast_service
+        self.assertIn("_AST", [tab.label for tab in self.app.tabs])
+        self.assertTrue(self.app.button(key="run_ast").disabled)
+        with self.upload_patch({"ast_upload": Uploaded("app.py", b"def f(x):\n    return x + 1\n")}), \
+                patch.object(ast_ui, "analyze_prepared", wraps=qa_ast_service.analyze_prepared) as analyze, \
+                patch.object(service, "prepare_upload", wraps=service.prepare_upload) as prepare, \
+                patch.object(service, "compare_prepared") as compare:
+            self.app.run()
+            self.app.button(key="run_ast").click().run()
+            self.assert_clean()
+            result = self.app.session_state.ast_analysis
+            self.assertEqual(result["report"]["status"], "complete")
+            self.assertIn("FunctionDef(", self.app.code[0].value)
+            self.assertIsNone(self.app.session_state.pair_analysis)
+            self.assertEqual((analyze.call_count, prepare.call_count), (1, 1))
+            self.app.segmented_control(key="ast_output_view").set_value("정리형").run()
+            self.assert_clean()
+            self.assertEqual((analyze.call_count, prepare.call_count), (1, 1))
+            self.assertEqual(len(self.app.session_state.snapshots), 1)
+            compare.assert_not_called()
+        self.app.run()
+        self.assert_clean()
+        self.assertFalse(any(widget.key.startswith("ast_download_") for widget in self.app.get("download_button")))
+        self.assertTrue(any("입력이 바뀌었습니다" in item.value for item in self.app.info))
+
+    def test_single_ast_errors_are_downloadable_without_comparison(self):
+        with self.upload_patch({"ast_upload": Uploaded("broken.py", b"def broken(:\n")}):
+            self.app.run()
+            self.app.button(key="run_ast").click().run()
+            self.assert_clean()
+            result = self.app.session_state.ast_analysis
+            self.assertEqual(result["report"]["status"], "incomplete")
+            self.assertIn("SyntaxError", result["documents"]["ast_tree.md"])
+            self.assertTrue(self.app.warning)
+            self.assertTrue(any(widget.key == "ast_download_ast_tree.md" for widget in self.app.get("download_button")))
+            self.assertIsNone(self.app.session_state.pair_analysis)
+
+    def test_single_ast_reuses_prepared_source_without_copying_it_again(self):
+        manifest = self.source_snapshots()[0]
+        self.app.session_state.snapshots = [{"label": "기존 소스", "manifest": manifest}]
+        self.app.run()
+        self.app.segmented_control(key="ast_method").set_value("준비된 입력").run()
+        with patch.object(service, "prepare_upload") as prepare:
+            self.app.button(key="run_ast").click().run()
+            self.assert_clean()
+            self.assertEqual(self.app.session_state.ast_analysis["report"]["snapshot_id"], manifest["id"])
+            self.assertEqual(len(self.app.session_state.snapshots), 1)
+            prepare.assert_not_called()
+
+    def test_single_git_ast_uses_one_selected_commit_and_keeps_checkout(self):
+        repo, _, latest = self.create_git_pair()
+        self.app.segmented_control(key="ast_method").set_value("Git").run()
+        self.app.text_input(key="ast_location").set_value(str(repo)).run()
+        self.app.button(key="ast_load_history").click().run()
+        self.assertEqual(self.app.selectbox(key="ast_commit").value, latest)
+        self.assertEqual(self.app.selectbox(key="ast_commit").label, "분석할 커밋")
+        self.app.button(key="run_ast").click().run()
+        self.assert_clean()
+        result = self.app.session_state.ast_analysis
+        self.assertEqual(result["report"]["input"]["commit_sha"], latest)
+        self.assertIn("LtE(", result["trees"][0]["tree"])
+        self.assertEqual(len(self.app.session_state.snapshots), 1)
+        self.assertIsNone(self.app.session_state.pair_analysis)
+        self.assertEqual(subprocess.run([shutil.which("git"), "status", "--porcelain"], cwd=repo, capture_output=True, check=True).stdout, b"")
 
 
 if __name__ == "__main__":

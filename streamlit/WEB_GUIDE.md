@@ -1,6 +1,6 @@
 # QA compare 웹 서비스
 
-입력을 스냅샷으로 변환하고 Ver.A와 Ver.B를 비교하는 Streamlit 서비스다. Python 3.12 이상, Streamlit 1.64.0을 사용한다.
+입력 하나에서 AST를 만들거나 Ver.A와 Ver.B를 비교하는 Streamlit 서비스다. Python 3.12 이상, Streamlit 1.64.0을 사용한다. 현재 Cloud 배포는 Python 3.12로 고정한다.
 
 ## 실행
 
@@ -12,7 +12,39 @@ uv sync
 
 브라우저에서 http://127.0.0.1:8501 을 연다. 포트 변경은 `run_qa_web.ps1 -Port 8502`로 지정한다. macOS/Linux에서는 streamlit 폴더에서 `uv run streamlit run streamlit_app.py --server.address 127.0.0.1`로 실행한다.
 
-## 사용 순서
+## Streamlit Cloud
+
+[QA compare 접속](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/). 로컬 PC를 꺼도 접속할 수 있다.
+
+- 저장소: `rupria/QA_train`, 브랜치: `main`, 실행 파일: `streamlit/streamlit_app.py`
+- Python: 3.12, 의존성: `streamlit/uv.lock`
+- Advanced settings / Secrets: `QA_WEB_ALLOW_LOCAL = "0"`
+- Cloud에서는 서버의 로컬 경로를 입력하지 않고 파일 업로드·공개 GitHub HTTPS 입력을 사용한다.
+- 작업 파일은 세션별로 분리되며 영구 저장을 보장하지 않는다. 다른 PC로 옮길 결과는 Markdown·JSON·ZIP으로 다운로드한다.
+
+## 화면 구분
+
+| 탭 | 목적 | 필요한 입력 |
+|---|---|---|
+| 비교 | Ver.A·Ver.B 변경과 QA 영향 후보 | 두 버전 |
+| _AST | Python AST 트리·구조 생성 | 소스 하나 또는 커밋 하나 |
+| AST 연결·해석 | 변경 심볼의 연결과 값 흐름 | 완료한 코드 영향 비교 |
+| 스냅샷 | 준비한 입력의 파일 목록·출처·보관 | 준비된 입력 |
+
+## 단일 AST 생성
+
+1. **_AST** 탭을 연다.
+2. `.py`, `.ipynb`, 프로젝트 ZIP, Git 커밋 하나 또는 준비된 Python 소스를 선택한다. 로컬 실행에서 허용한 경우 서버 PC의 경로도 가능하다. APK·IPA와 Python 원본이 없는 입력은 단일 AST 분석에 사용할 수 없다.
+3. ZIP·저장소·폴더의 **분석 루트**를 지정한다. 전체는 `.`이다. Git은 커밋 목록의 최신 커밋을 기본 선택하며, 직접 브랜치·태그·해시 하나를 입력할 수도 있다.
+4. **AST 생성**을 누른다. 비교 입력을 추가로 지정할 필요가 없다.
+5. **트리형 / 정리형**으로 결과를 선택한다. 트리형은 파일·코드 셀을 골라 볼 수 있고 `ast.dump(tree, indent=2)`의 계층을 유지한다. 정리형에는 함수·클래스·호출·변수 대입과 원본 줄을 표시한다.
+6. `ast_tree.md`, `ast_structure.md`, `ast_structure.json` 또는 모두 포함한 `ast_reports.zip`을 내려받는다. 로컬 기본 저장 위치는 `.web_runs/session-<ID>/ast_reports/<run-ID>/`이며, `QA_WEB_WORKSPACE`를 지정하면 해당 작업 루트 아래에 저장한다.
+
+파싱 오류는 파일·셀 위치와 함께 같은 보고서에 기록하고, 일부 실패 또는 분석할 코드 셀이 없는 입력은 완료로 표시하지 않는다. 노트북은 Jupyter 전용 구문을 제외한 Python 본문을 분석하며 전처리 여부를 안내한다. `.py`는 인코딩 선언을 따른다. 트리 Markdown에는 원본 코드나 해설 표를 섞지 않는다.
+
+입력 변경 시 이전 결과와 다운로드를 숨긴다. 탭 이동·결과 형식·표시할 파일 변경은 재분석하지 않는다. 생성한 소스 스냅샷은 현재 세션의 준비된 입력으로 재사용할 수 있다. AST 보고서 3개의 합계가 100MiB를 넘으면 분석 루트를 줄여야 한다. 화면의 개별 트리는 앞 262,144자까지 표시하며 전체 결과는 다운로드에 포함한다.
+
+## 비교 사용 순서
 
 1. 기본 **비교** 화면의 왼쪽 **Ver.A**, 오른쪽 **Ver.B**에서 각각 파일 업로드·Git·로컬 경로·준비된 입력 중 하나를 선택한다. 양쪽 입력 방식은 달라도 된다. 예를 들어 Git 커밋과 로컬 소스를 비교할 수 있다.
 2. 각 입력의 파일·경로·버전을 지정하고 공통 설정에서 비교 방식, 필요한 기능·TC 매핑 JSON과 분석 깊이를 정한다. Git 커밋 목록 조회는 버전을 고르기 위한 읽기 작업이며 이 단계에서 입력 변환이나 분석을 실행하지 않는다.

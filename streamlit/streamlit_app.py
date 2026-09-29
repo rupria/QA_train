@@ -12,6 +12,7 @@ import streamlit as st
 from ast_runtime import AST_ROOT
 
 from code_comparison import code_block, markdown_comparison
+from ast_ui import ast_view
 from flow_ui import flow_view
 from qa_web_service import (
     compare_inventory, compare_prepared, make_snapshot_download, new_session,
@@ -33,6 +34,7 @@ def initialize():
             if st.session_state.get(legacy_key) in ids:
                 st.session_state[f"{side}_method"] = "준비된 입력"
     st.session_state.setdefault("pair_analysis", None)
+    st.session_state.setdefault("ast_analysis", None)
     st.session_state.setdefault("history_pool", {})
     st.session_state.setdefault("flow_result", None)
     if "current_pair_signature" not in st.session_state and st.session_state.pair_analysis:
@@ -68,11 +70,14 @@ def display_label(item):
     return f"{input_label(item)} · {kind}" + (f" · {version}" if version else "")
 
 
-def input_side(side, title):
+def input_side(side, title, *, ast_only=False):
     with st.container(border=True):
         st.subheader(title)
         options = ["파일 업로드", "Git"] + (["로컬 경로"] if LOCAL_ALLOWED else [])
-        if st.session_state.snapshots:
+        snapshots = [item for item in st.session_state.snapshots if not ast_only or (
+            item["manifest"]["representation"] == "original_source"
+            and item["manifest"]["capabilities"].get("python_ast"))]
+        if snapshots:
             options.append("준비된 입력")
         key = f"{side}_method"
         if st.session_state.get(key) not in options:
@@ -80,7 +85,7 @@ def input_side(side, title):
         method = st.segmented_control("입력 방식", options, required=True, key=key, persist_state="session")
         spec = {"method": method, "source_root": ".", "ready": False}
         if method == "준비된 입력":
-            by_id = {snapshot_id(item): item for item in st.session_state.snapshots}
+            by_id = {snapshot_id(item): item for item in snapshots}
             key = f"{side}_snapshot"
             if st.session_state.get(key) not in by_id:
                 legacy_key = "base_choice" if side == "base" else "target_choice"
@@ -91,11 +96,12 @@ def input_side(side, title):
             snapshot_brief(by_id[selected]["manifest"])
             return spec
         if method == "파일 업로드":
-            st.caption("APK · IPA · Python 파일 · 프로젝트 ZIP (폴더는 ZIP으로 올려주세요)")
-            upload = st.file_uploader("파일 선택", type=["apk", "ipa", "py", "ipynb", "zip"], max_upload_size=200, key=f"{side}_upload")
+            st.caption("Python 파일 · Notebook · 프로젝트 ZIP (폴더는 ZIP으로 올려주세요)" if ast_only else "APK · IPA · Python 파일 · 프로젝트 ZIP (폴더는 ZIP으로 올려주세요)")
+            extensions = ["py", "ipynb", "zip"] if ast_only else ["apk", "ipa", "py", "ipynb", "zip"]
+            upload = st.file_uploader("파일 선택", type=extensions, max_upload_size=200, key=f"{side}_upload")
             if upload is not None:
                 spec.update(filename=upload.name, data=upload.getvalue(), ready=True)
-            root_label = "ZIP 내부 비교 루트"
+            root_label = "ZIP 내부 분석 루트" if ast_only else "ZIP 내부 비교 루트"
         else:
             is_git = method == "Git"
             label = "Git 저장소" if is_git else "로컬 경로"
@@ -103,20 +109,21 @@ def input_side(side, title):
             location = st.text_input(label, placeholder=placeholder, key=f"{side}_location", persist_state="session").strip()
             spec["location"] = location
             spec["ready"] = bool(location)
-            root_label = "저장소 내부 비교 루트" if is_git else "프로젝트 내부 비교 루트"
+            root_label = ("저장소 내부 분석 루트" if is_git else "프로젝트 내부 분석 루트") if ast_only else ("저장소 내부 비교 루트" if is_git else "프로젝트 내부 비교 루트")
             if not is_git:
                 st.caption("Streamlit 서버가 실행되는 PC의 경로입니다.")
-        spec["source_root"] = st.text_input(root_label, value=".", help="전체는 . 그대로 사용하세요. 폴더만 비교하려면 src 또는 Assets처럼 입력합니다.", key=f"{side}_root", persist_state="session").strip()
+        root_help = "전체는 . 그대로 사용하세요. 폴더만 분석하려면 src처럼 입력합니다." if ast_only else "전체는 . 그대로 사용하세요. 폴더만 비교하려면 src 또는 Assets처럼 입력합니다."
+        spec["source_root"] = st.text_input(root_label, value=".", help=root_help, key=f"{side}_root", persist_state="session").strip()
         if method == "Git":
-            spec.update(git_version(side, spec["location"]))
+            spec.update(git_version(side, spec["location"], ast_only=ast_only))
         return spec
 
 
-def git_version(side, location):
+def git_version(side, location, *, ast_only=False):
     mode = st.segmented_control("버전 선택", ["커밋 목록", "직접 입력"], default="커밋 목록", required=True, key=f"{side}_git_mode", persist_state="session")
     if mode == "직접 입력":
         ref = st.text_input("브랜치·태그·커밋", value="HEAD", key=f"{side}_ref", persist_state="session").strip()
-        st.caption("직전 커밋은 HEAD~1, 최신 커밋은 HEAD로 지정할 수 있습니다.")
+        st.caption("분석할 브랜치·태그·커밋 하나를 지정하세요. 최신 버전은 HEAD입니다." if ast_only else "직전 커밋은 HEAD~1, 최신 커밋은 HEAD로 지정할 수 있습니다.")
         return {"ref": ref, "ready": bool(location and ref)}
     history_ref = st.text_input("커밋 기록 기준", value="HEAD", help="현재 브랜치의 최신 기록은 HEAD입니다. 다른 브랜치·태그도 지정할 수 있습니다.", key=f"{side}_history_ref", persist_state="session").strip()
     query = (location, history_ref)
@@ -132,7 +139,7 @@ def git_version(side, location):
             st.error(f"커밋 목록을 가져오지 못했습니다: {error}")
     commits = pool.get(query)
     if not commits:
-        st.info("저장소를 입력하고 커밋 목록을 불러오세요. 같은 저장소의 조회 기록은 양쪽에서 함께 사용합니다.")
+        st.info("저장소를 입력하고 커밋 목록을 불러오세요." if ast_only else "저장소를 입력하고 커밋 목록을 불러오세요. 같은 저장소의 조회 기록은 양쪽에서 함께 사용합니다.")
         return {"ref": None, "ready": False}
     by_sha = {commit["sha"]: commit for commit in commits}
     shas = list(by_sha)
@@ -144,9 +151,9 @@ def git_version(side, location):
     def commit_label(sha):
         item = by_sha[sha]
         return f"{item['date'][:16].replace('T', ' ')} · {item['subject']} · {item['short_sha']}"
-    ref = st.selectbox("비교할 커밋", shas, format_func=commit_label, key=commit_key, persist_state="session")
+    ref = st.selectbox("분석할 커밋" if ast_only else "비교할 커밋", shas, format_func=commit_label, key=commit_key, persist_state="session")
     st.caption("기본 선택: 직전 커밋" if side == "base" else "기본 선택: 최신 커밋")
-    if len(shas) == 1:
+    if len(shas) == 1 and not ast_only:
         st.warning("커밋이 1개만 조회됐습니다. 다른 기준 또는 다른 입력과 비교하세요.")
     with st.expander("커밋 기록 전체 보기"):
         st.dataframe([{"날짜": item["date"], "커밋 메시지": item["subject"], "해시": item["sha"]} for item in commits], hide_index=True, width="stretch")
@@ -435,16 +442,18 @@ def main():
         st.write("소스 · 엔진 프로젝트 · Git\n\nAPK · IPA 설치 패키지")
         st.caption(f"현재 세션의 입력 {len(st.session_state.snapshots)}개")
         st.divider()
-        st.caption("Python: 코드 영향 분석\n\n다른 소스·패키지: 파일 구성 비교")
+        st.caption("Python: 단일 AST · 코드 영향 분석\n\n다른 소스·패키지: 파일 구성 비교")
     st.title("QA compare")
-    st.write("Ver.A·Ver.B를 한 화면에서 지정하고 변경 내용을 비교하세요.")
-    compare_tab, flow_tab, snapshot_tab = st.tabs(
-        ["비교", "AST 연결·해석", "스냅샷"], key="work_tabs",
+    st.write("단일 소스의 AST를 만들거나 Ver.A·Ver.B의 변경 내용을 비교하세요.")
+    compare_tab, ast_tab, flow_tab, snapshot_tab = st.tabs(
+        ["비교", "_AST", "AST 연결·해석", "스냅샷"], key="work_tabs",
     )
     # Keep input widgets mounted so uploads and mapping survive tab navigation.
     # Preparation and analysis remain explicit button actions.
     with compare_tab:
         pair_view()
+    with ast_tab:
+        ast_view(input_side, prepare_side, input_signature)
     with flow_tab:
         flow_view()
     with snapshot_tab:

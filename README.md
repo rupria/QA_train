@@ -1,12 +1,12 @@
 # QA Train
 
-Ver.A와 Ver.B의 로컬 코드, Git 버전, 엔진 프로젝트, APK·IPA 입력을 공통 형식으로 준비하고 변경 지점과 QA 영향 후보를 찾는 정적 분석 프로젝트입니다.
+하나의 소스에서 AST를 생성하거나, Ver.A와 Ver.B의 로컬 코드·Git 버전·엔진 프로젝트·APK·IPA를 비교해 변경 지점과 QA 영향 후보를 찾는 정적 분석 프로젝트입니다.
 
-현재는 **실행 가능한 1차 로컬 MVP가 완성된 상태**입니다. Python 코드의 AST 변경·호출 관계·값 흐름을 분석하고 Streamlit에서 두 버전을 한 번에 비교할 수 있습니다. 다음 개발 구간은 Hybrid RAG, LLM 해석, 다국어 분석입니다.
+현재는 **1차 MVP와 Streamlit Cloud 배포가 완료된 상태**입니다. `_AST`에서 단일 Python 소스의 트리형·정리형 보고서를 만들고, 비교 화면에서는 두 버전의 AST 변경·호출 관계·값 흐름을 분석합니다. 다음 개발 구간은 Hybrid RAG, LLM 해석, 다국어 분석입니다.
 
-> 기준일: 2026-09-25
+> 기준일: 2026-09-29
 >
-> 운영 형태: localhost용 Streamlit 앱
+> 운영 형태: 로컬 실행 / [Streamlit Cloud](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/)
 
 ## 프로젝트 목표
 
@@ -29,6 +29,7 @@ Ver.A / Ver.B 입력
 | 기본 파일 비교 | ✅ 완료 | 상대 경로·파일 크기·SHA-256 기준으로 추가·삭제·수정 탐지 |
 | Git 버전 선택 | ✅ 완료 | 최근 커밋 목록에서 Ver.A·Ver.B 선택, 직전 커밋과 최신 커밋을 기본 선택 |
 | Python AST 분석 | ✅ 완료 | 함수·클래스·import·호출·변수 대입·제어 흐름 추출 |
+| 단일 입력 AST 화면 | ✅ 완료 | `_AST` 탭에서 소스 하나·커밋 하나 분석, 트리형·정리형 보고서와 ZIP 다운로드 |
 | 코드 영향 분석 | ✅ 완료 | 변경 심볼과 상위 호출·참조 관계 탐색 |
 | 기능·TC 연결 | ✅ 완료 | 사용자가 제공한 기능 매핑 JSON으로 기능과 기존 TC 후보 연결 |
 | 값 흐름 해석 | 🟡 1차 완료 | 반환값 → 변수 → 인자 → 매개변수 → 반환·상태 쓰기 후보 추적 |
@@ -38,17 +39,28 @@ Ver.A / Ver.B 입력
 | Hybrid RAG | ⬜ 계획 | 코드 근거와 기능 명세·TC·프로젝트 문서를 함께 검색 |
 | LLM 해석 | ⬜ 계획 | 검색 근거로 기능 영향과 QA 확인 항목을 설명 |
 | 다국어 코드 분석 | ⬜ 계획 | JavaScript/TypeScript, Java/Kotlin, C#, C++용 파서·어댑터 |
-| 공개 서비스 운영 | ⬜ 계획 | 인증, 작업 제한, 보관 정책, 사용자 API 키 관리 |
+| Streamlit Cloud 배포 | ✅ 완료 | `main`의 `streamlit/streamlit_app.py`, Python 3.12, 서버 로컬 입력 비활성화 |
+| 공개 서비스 운영 강화 | ⬜ 계획 | 인증, 작업 시간 제한, 보관 정책, 사용자 API 키 관리 |
 
-**현재 위치:** 로컬에서 사용할 수 있는 코드 비교 MVP는 완료됐으며, 전체 목표에서는 Hybrid RAG·LLM을 붙이기 직전 단계입니다.
+**현재 위치:** 단일 AST 생성과 코드 비교 MVP를 로컬·Cloud에서 사용할 수 있으며, 전체 목표에서는 Hybrid RAG·LLM을 붙이기 직전 단계입니다.
 
 검증 기준:
 
 - AST 엔진 테스트: 75개
-- Streamlit 프로젝트 테스트: 59개
-- 전체 회귀 테스트: 134개
+- Streamlit 프로젝트 테스트: 71개
+- 전체 회귀 테스트: 146개
 
 ## 지금 할 수 있는 것
+
+### 소스 하나에서 AST 생성
+
+`_AST` 탭에서 `.py`, `.ipynb`, 프로젝트 ZIP, Git 커밋 하나 또는 준비한 Python 소스를 선택하고 **AST 생성**을 누릅니다. 로컬 실행에서는 서버 PC의 소스 경로도 사용할 수 있습니다.
+
+- 트리형: Python 표준 `ast.dump(tree, indent=2)`를 `text` 코드 블록에 보존한 Markdown
+- 정리형: 함수·클래스·import·호출·변수 대입·제어 흐름을 원본 순서로 정리한 Markdown·JSON
+- 파일·코드 셀별 파싱 오류를 같은 보고서에 보존
+- 보고서 3개를 묶은 ZIP 다운로드
+- 비교 결과와 독립적인 입력·분석 상태. 탭 이동이나 결과 형식 변경으로 재분석하지 않음
 
 ### 한 화면에서 Ver.A와 Ver.B 비교
 
@@ -114,6 +126,8 @@ QA_train/
 └─ streamlit/              # 웹 UI·세션 서비스·실행 설정
    ├─ streamlit_app.py
    ├─ qa_web_service.py
+   ├─ qa_ast_service.py    # 세션 스냅샷 하나의 AST 보고서 생성
+   ├─ ast_ui.py            # _AST 입력·결과·다운로드 화면
    ├─ qa_flow_service.py
    ├─ flow_ui.py
    ├─ ast_runtime.py       # 형제 AST 프로젝트를 불러오는 경계
@@ -141,6 +155,8 @@ flowchart LR
 Python 3.12와 [uv](https://docs.astral.sh/uv/)가 필요합니다.
 
 ### Streamlit 웹 앱
+
+[Cloud 앱 열기](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/). 이 PC를 꺼도 접속할 수 있으며, Cloud에서는 파일 업로드와 공개 GitHub 입력을 사용합니다. Cloud의 세션 파일은 영구 보관을 보장하지 않으므로 필요한 결과는 다운로드합니다.
 
 ```powershell
 git clone https://github.com/rupria/QA_train.git
@@ -281,7 +297,15 @@ Git 입력은 최신 해시 하나만 보여주는 방식에서 커밋 기록 �
 - `7a167dd` — 입력 변환, 비교, 값 흐름과 Streamlit 앱 추가
 - `d409628` — AST 엔진과 Streamlit UI를 별도 프로젝트로 재분리
 
-### 7. Hybrid RAG와 LLM 역할 정의 — 다음 단계
+### 7. 단일 AST 화면과 Cloud 배포 — 2026-09-29
+
+- 기존 Cloud 주소를 `streamlit/streamlit_app.py`의 새 배포에 연결
+- Python 3.12와 `streamlit/uv.lock` 사용, `QA_WEB_ALLOW_LOCAL="0"` 설정
+- `_AST` 탭에 단일 입력 분석과 트리형·정리형·ZIP 다운로드 추가
+- 입력 변경 시 이전 결과와 다운로드를 숨기고, 두 버전 비교와 상태를 분리
+- 다른 PC에서는 저장소 `main`을 받아 같은 기능을 로컬에서 실행 가능
+
+### 8. Hybrid RAG와 LLM 역할 정의 — 다음 단계
 
 확정한 순서는 **AST 근거 생성 → Hybrid RAG 검색 → LLM 해석 → QA 추천**입니다. LLM이 코드 관계를 추측하게 하기 전에 AST가 재현 가능한 파일·줄·심볼 근거를 만듭니다.
 
@@ -357,7 +381,7 @@ AST 결과, 값 흐름, 기능 매핑, TC, 문서 조각이 같은 ID 체계로 
 - 실제 제품 기능명과 TC는 사용자가 제공한 매핑이나 문서가 필요합니다.
 - APK·IPA에서 원본 코드를 완전히 복원하지 않습니다.
 - APK·IPA의 설치, 서명, 실행, 기기 호환성은 검증하지 않습니다.
-- 현재 웹 설정은 localhost 기준입니다. 공개 배포에는 인증과 데이터 보관 정책이 추가로 필요합니다.
+- Cloud 배포는 공개 앱이며 서버 로컬 경로 입력을 차단합니다. 인증, 작업 시간 제한과 데이터 보관 정책은 추가 운영 과제입니다.
 
 ## 참고할 RAG 자료 후보
 
