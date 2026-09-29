@@ -15,7 +15,7 @@ from code_comparison import code_block, markdown_comparison
 from ast_ui import ast_view
 from flow_ui import flow_view
 from qa_web_service import (
-    compare_inventory, compare_prepared, make_snapshot_download, new_session,
+    clear_session, compare_inventory, compare_prepared, make_snapshot_download, new_session,
     list_git_history, prepare_git, prepare_local, prepare_upload,
 )
 
@@ -441,6 +441,18 @@ def main():
         st.markdown("**지원하는 입력**")
         st.write("소스 · 엔진 프로젝트 · Git\n\nAPK · IPA 설치 패키지")
         st.caption(f"현재 세션의 입력 {len(st.session_state.snapshots)}개")
+        if st.button("세션 데이터 정리", key="clear_work_session",
+                     help="분석 완료 후 사용하세요. 현재 세션의 스냅샷·보고서·임시 입력을 서버에서 삭제합니다."):
+            try:
+                clear_session(st.session_state.work_session)
+            except (ValueError, OSError, RuntimeError) as error:
+                st.error(f"세션 데이터를 정리하지 못했습니다: {error}")
+            else:
+                st.session_state.clear()
+                st.session_state.session_cleanup_notice = True
+                st.rerun()
+        if st.session_state.pop("session_cleanup_notice", False):
+            st.success("현재 세션의 스냅샷·보고서·임시 입력을 삭제했습니다.")
         st.divider()
         st.caption("Python: 단일 AST · 코드 영향 분석\n\n다른 소스·패키지: 파일 구성 비교")
     st.title("QA compare")

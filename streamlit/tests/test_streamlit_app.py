@@ -413,6 +413,27 @@ class StreamlitAppTests(unittest.TestCase):
             self.assertEqual(len(self.app.session_state.snapshots), 1)
             prepare.assert_not_called()
 
+    def test_session_cleanup_removes_server_files_results_and_downloads(self):
+        manifest = self.source_snapshots()[0]
+        previous = self.app.session_state.work_session
+        other = service.new_session(self.work)
+        self.app.session_state.snapshots = [{"label": "테스트 소스", "manifest": manifest}]
+        self.app.run()
+        self.app.segmented_control(key="ast_method").set_value("준비된 입력").run()
+        self.app.button(key="run_ast").click().run()
+        self.assert_clean()
+        self.assertTrue((previous / "ast_reports").is_dir())
+        self.app.button(key="clear_work_session").click().run()
+        self.assert_clean()
+        self.assertFalse(previous.exists())
+        self.assertTrue(other.is_dir())
+        self.assertNotEqual(self.app.session_state.work_session, previous)
+        self.assertEqual(self.app.session_state.snapshots, [])
+        self.assertIsNone(self.app.session_state.ast_analysis)
+        self.assertIsNone(self.app.session_state.pair_analysis)
+        self.assertFalse(self.app.get("download_button"))
+        self.assertTrue(any("삭제했습니다" in item.value for item in self.app.success))
+
     def test_single_git_ast_uses_one_selected_commit_and_keeps_checkout(self):
         repo, _, latest = self.create_git_pair()
         self.app.segmented_control(key="ast_method").set_value("Git").run()

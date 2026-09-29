@@ -20,3 +20,5 @@ uv sync
 실행 중 업로드와 세션 스냅샷은 `streamlit/.web_runs/`에 저장되며 Git에 포함되지 않는다.
 
 `_AST` 보고서는 `.web_runs/session-<ID>/ast_reports/<run-ID>/`에 `ast_tree.md`, `file_tree.md`, `ast_structure.md`, `ast_structure.json`으로 자동 저장한다. 개별 파일과 ZIP을 내려받을 수 있다. 프로젝트 트리에서 경로를 선택하면 종류·크기·SHA-256과 해당 파일의 AST를 확인한다. JSON의 `files`에는 파일 목록과 `ast_paths`를 함께 보관한다. Cloud의 세션 파일은 영구 저장을 보장하지 않는다.
+
+분석이 끝나면 사이드바의 **세션 데이터 정리**로 현재 세션의 입력 복사본·스냅샷·보고서를 서버에서 삭제할 수 있다. 필요한 보고서는 먼저 내려받는다. 작업 검증에 사용한 임시 세션·다운로드·화면 캡처는 검증 완료 후 정리한다.

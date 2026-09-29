@@ -48,6 +48,30 @@ def _session(path) -> Path:
     return session
 
 
+def clear_session(path) -> None:
+    """Delete only this owned session's copies, reports and temporary Git inputs."""
+    expected = Path(path).absolute()
+    session = _session(expected)
+    if session != expected or not re.fullmatch(r"session-[0-9a-f]{32}", session.name):
+        raise ValueError("정리할 웹 세션의 절대 경로를 확인할 수 없습니다.")
+    def traversal_error(error):
+        raise ValueError("정리할 세션의 파일 목록을 확인할 수 없습니다.") from error
+
+    for directory, folders, files in os.walk(session, followlinks=False, onerror=traversal_error):
+        for name in folders + files:
+            target = Path(directory) / name
+            if conversion._is_reparse(target) or not target.resolve().is_relative_to(session):
+                raise ValueError("링크가 있는 세션은 자동으로 정리할 수 없습니다.")
+
+    def readonly_retry(function, path, error):
+        target = Path(path)
+        if not target.resolve().is_relative_to(session) or conversion._is_reparse(target):
+            raise RuntimeError("웹 세션 밖의 권한을 변경할 수 없습니다.") from error
+        target.chmod(target.stat().st_mode | stat.S_IWRITE)
+        function(path)
+    shutil.rmtree(session, onexc=readonly_retry)
+
+
 def _job(session) -> tuple[Path, Path]:
     session = _session(session)
     folder = session / "input" / uuid.uuid4().hex

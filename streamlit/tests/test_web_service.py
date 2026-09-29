@@ -53,6 +53,44 @@ class WebServiceTests(unittest.TestCase):
         return zipped([("AndroidManifest.xml", b"<manifest/>"),
                        ("classes.dex", b"dex\n035\x00" + data)])
 
+    def test_clear_session_deletes_owned_copies_reports_and_readonly_files_only(self):
+        original = self.work / "original.py"
+        original.write_text("x = 1\n")
+        service.prepare_local(self.session, str(original))
+        report = self.session / "ast_reports" / "test.md"
+        report.parent.mkdir()
+        report.write_text("test report")
+        report.chmod(stat.S_IREAD)
+        other = service.new_session(self.session.parent)
+        marker = other / "keep.txt"
+        marker.write_text("other session")
+        service.clear_session(self.session)
+        self.assertFalse(self.session.exists())
+        self.assertEqual(original.read_text(), "x = 1\n")
+        self.assertEqual(marker.read_text(), "other session")
+
+    def test_clear_session_rejects_missing_or_modified_ownership(self):
+        for value in (None, "wrong-session"):
+            with self.subTest(marker=value):
+                marker = self.session / ".qa-web-session"
+                if value is None:
+                    marker.unlink()
+                else:
+                    marker.write_text(value)
+                with self.assertRaisesRegex(ValueError, "소유"):
+                    service.clear_session(self.session)
+                self.assertTrue(self.session.exists())
+
+    def test_clear_session_refuses_reparse_child_before_deleting_any_files(self):
+        child = self.session / "linked-folder"
+        child.mkdir()
+        original = service.conversion._is_reparse
+        with mock.patch.object(service.conversion, "_is_reparse", side_effect=lambda path: Path(path) == child or original(path)):
+            with self.assertRaisesRegex(ValueError, "링크"):
+                service.clear_session(self.session)
+        self.assertTrue((self.session / ".qa-web-session").is_file())
+        self.assertTrue(child.is_dir())
+
     def test_python_uploads_compare_semantics_and_tc_without_execution(self):
         sentinel = self.work / "executed"
         prefix = f"from pathlib import Path\nPath({str(sentinel)!r}).write_text('executed')\n"
