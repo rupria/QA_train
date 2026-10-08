@@ -123,7 +123,12 @@ def input_side(side, title, *, ast_only=False):
             if not is_git:
                 st.caption("Streamlit 서버가 실행되는 PC의 경로입니다.")
         root_help = "전체는 . 그대로 사용하세요. 폴더만 분석하려면 src처럼 입력합니다." if ast_only else "전체는 . 그대로 사용하세요. 폴더만 비교하려면 src 또는 Assets처럼 입력합니다."
-        spec["source_root"] = st.text_input(root_label, value=".", help=root_help, key=f"{side}_root", persist_state="session").strip()
+        root_key = f"{side}_root"
+        if not str(st.session_state.get(root_key, "")).strip():
+            st.session_state[root_key] = "."
+        spec["source_root"] = st.text_input(
+            root_label, help=root_help, key=root_key, persist_state="session"
+        ).strip() or "."
         if method == "Git":
             spec.update(git_version(side, spec["location"], ast_only=ast_only))
         return spec

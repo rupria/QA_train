@@ -459,6 +459,8 @@ class StreamlitAppTests(unittest.TestCase):
         repo, _, latest = self.create_git_pair()
         self.app.segmented_control(key="ast_method").set_value("Git").run()
         self.app.text_input(key="ast_location").set_value(str(repo)).run()
+        self.app.text_input(key="ast_root").set_value("").run()
+        self.assertEqual(self.app.text_input(key="ast_root").value, ".")
         self.app.button(key="ast_load_branches").click().run()
         self.app.button(key="ast_load_history").click().run()
         self.assertEqual(self.app.selectbox(key="ast_branch").value, "main")
