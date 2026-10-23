@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "purpose": "Retrieve and relate identifier, naming, declaration, convention, API-contract, and web-standard evidence for AST-derived symbols.",
+  "scope_exclusions": [
+    "test-case recommendation",
+    "test prioritization",
+    "defect prediction",
+    "project-specific facts in common model weights"
+  ],
+  "models": {
+    "primary": {
+      "model_id": "Qwen/Qwen3-Embedding-0.6B",
+      "role": "local training and runtime embedding",
+      "license": "Apache-2.0",
+      "parameter_count": "0.6B",
+      "max_context_tokens": 32768,
+      "native_embedding_dimensions": 1024
+    },
+    "teacher": {
+      "model_id": "Qwen/Qwen3-Embedding-4B",
+      "role": "optional offline teacher and benchmark",
+      "license": "Apache-2.0",
+      "parameter_count": "4B",
+      "max_context_tokens": 32768,
+      "native_embedding_dimensions": 2560,
+      "required": false
+    },
+    "reranker": {
+      "model_id": "Qwen/Qwen3-Reranker-0.6B",
+      "role": "deferred until reviewed hard negatives and retrieval evaluation exist",
+      "enabled": false
+    }
+  },
+  "encoding": {
+    "query_instruction": "Given a software convention query in Korean or English, retrieve direct evidence about identifiers, naming, declarations, code quality, API contracts, and web standards.",
+    "instruction_language": "english",
+    "query_format": "Instruct: {instruction}\nQuery: {query}",
+    "add_instruction_to_documents": false,
+    "padding_side": "left",
+    "pooling": "last_token",
+    "normalization": "l2",
+    "similarity": "cosine",
+    "runtime_max_tokens": 8192,
+    "runtime_embedding_dimensions": 1024
+  },
+  "training": {
+    "framework": "ModelScope SWIFT",
+    "task_type": "embedding",
+    "initial_train_type": "lora",
+    "loss_type": "infonce",
+    "infonce_temperature": 0.01,
+    "use_in_batch_negatives": true,
+    "mask_false_negatives": true,
+    "hard_negative_policy": "Use same-language, same-framework, or lexically similar rules that do not apply to the AST symbol. Never use another valid rule for the same symbol as a negative.",
+    "split_policy": "Split by source snapshot and later by repository, project, feature, and commit. Never randomly split neighboring chunks from the same document or repository across train and evaluation.",
+    "readiness_gates": [
+      "automatic rules have a reviewed status",
+      "public-code AST examples are linked to applicable rule_id values",
+      "hard negatives are checked for false-negative conflicts",
+      "a held-out retrieval evaluation set exists"
+    ]
+  },
+  "decision_rules": [
+    "AST parser output is authoritative for symbol kind and structural edges.",
+    "The embedding model retrieves semantic rules and related concepts; it does not overwrite AST facts.",
+    "Every learned rule retains source URL and source content SHA-256.",
+    "Low-confidence automatic rules remain candidates until reviewed.",
+    "Personal-project symbols are isolated in project indexes and are not added to common model weights by default.",
+    "No TC field, prompt, label, or recommendation is included in this training stage."
+  ],
+  "official_references": [
+    "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B",
+    "https://github.com/QwenLM/Qwen3-Embedding/blob/main/docs/training/SWIFT.md"
+  ]
+}

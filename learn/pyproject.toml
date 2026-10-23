@@ -1,0 +1,9 @@
+[project]
+name = "qa-train-learn"
+version = "0.1.0"
+description = "API-free convention and identifier rule dataset builder for QA Train"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false

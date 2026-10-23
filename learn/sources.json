@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "google-style-guides",
+      "name": "Google Style Guides",
+      "source_type": "style_guide",
+      "languages": ["c++", "csharp", "go", "html", "css", "java", "javascript", "python", "swift", "typescript"],
+      "rule_families": ["naming", "declaration", "formatting", "code_quality"],
+      "allowed_domains": ["google.github.io"],
+      "urls": [
+        {"url": "https://google.github.io/styleguide/", "languages": ["general"]},
+        {"url": "https://google.github.io/styleguide/cppguide.html", "languages": ["c++"]},
+        {"url": "https://google.github.io/styleguide/csharp-style.html", "languages": ["csharp"]},
+        {"url": "https://google.github.io/styleguide/go/", "languages": ["go"]},
+        {"url": "https://google.github.io/styleguide/go/guide", "languages": ["go"]},
+        {"url": "https://google.github.io/styleguide/go/decisions", "languages": ["go"]},
+        {"url": "https://google.github.io/styleguide/go/best-practices", "languages": ["go"]},
+        {"url": "https://google.github.io/styleguide/htmlcssguide.html", "languages": ["html", "css"]},
+        {"url": "https://google.github.io/styleguide/javaguide.html", "languages": ["java"]},
+        {"url": "https://google.github.io/styleguide/jsguide.html", "languages": ["javascript"]},
+        {"url": "https://google.github.io/styleguide/pyguide.html", "languages": ["python"]},
+        {"url": "https://google.github.io/swift/", "languages": ["swift"]},
+        {"url": "https://google.github.io/styleguide/tsguide.html", "languages": ["typescript"]}
+      ]
+    },
+    {
+      "id": "kakao-rest-api",
+      "name": "Kakao REST API Reference",
+      "source_type": "api_reference",
+      "languages": ["http", "json", "korean"],
+      "rule_families": ["api_contract", "naming", "error_handling"],
+      "allowed_domains": ["developers.kakao.com"],
+      "urls": ["https://developers.kakao.com/docs/ko/rest-api/reference"]
+    },
+    {
+      "id": "microsoft-csharp-identifiers",
+      "name": "Microsoft C# Identifier Naming Rules",
+      "source_type": "identifier_guide",
+      "languages": ["csharp", "korean"],
+      "rule_families": ["naming", "identifier", "declaration"],
+      "allowed_domains": ["learn.microsoft.com"],
+      "urls": ["https://learn.microsoft.com/ko-kr/dotnet/csharp/fundamentals/coding-style/identifier-names"]
+    },
+    {
+      "id": "pep8",
+      "name": "PEP 8",
+      "source_type": "style_guide",
+      "languages": ["python", "english"],
+      "rule_families": ["naming", "declaration", "formatting", "code_quality"],
+      "allowed_domains": ["peps.python.org"],
+      "urls": ["https://peps.python.org/pep-0008/"]
+    },
+    {
+      "id": "w3c-standards",
+      "name": "W3C Standards",
+      "source_type": "web_standard",
+      "languages": ["html", "css", "web", "english"],
+      "rule_families": ["web_standard", "naming", "api_contract"],
+      "allowed_domains": ["www.w3.org"],
+      "urls": ["https://www.w3.org/"]
+    },
+    {
+      "id": "naver-cloud-guide",
+      "name": "NAVER Cloud Platform Guide",
+      "source_type": "cloud_guide",
+      "languages": ["http", "json", "korean"],
+      "rule_families": ["api_contract", "naming", "error_handling"],
+      "allowed_domains": ["guide.ncloud-docs.com"],
+      "urls": ["https://guide.ncloud-docs.com/docs/home"]
+    },
+    {
+      "id": "frontend-fundamentals-code-quality",
+      "name": "Frontend Fundamentals Code Quality",
+      "source_type": "code_quality",
+      "languages": ["javascript", "typescript", "korean"],
+      "rule_families": ["naming", "code_quality", "declaration", "abstraction"],
+      "allowed_domains": ["frontend-fundamentals.com"],
+      "urls": ["https://frontend-fundamentals.com/code-quality/code/"]
+    }
+  ]
+}
