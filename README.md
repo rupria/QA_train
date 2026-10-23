@@ -4,7 +4,7 @@
 
 현재는 **1차 MVP와 Streamlit Cloud 배포가 완료된 상태**입니다. `_AST`에서 단일 Python 소스의 트리형·정리형 보고서를 만들고, 비교 화면에서는 두 버전의 AST 변경·호출 관계·값 흐름을 분석합니다. 다음 개발 구간은 Hybrid RAG, LLM 해석, 다국어 분석입니다.
 
-> 기준일: 2026-10-02
+> 기준일: 2026-10-23
 >
 > 운영 형태: 로컬 실행 / [Streamlit Cloud](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/)
 
@@ -42,8 +42,11 @@ Ver.A / Ver.B 입력
 | 다국어 코드 분석 | ⬜ 계획 | JavaScript/TypeScript, Java/Kotlin, C#, C++용 파서·어댑터 |
 | Streamlit Cloud 배포 | ✅ 완료 | `main`의 `streamlit/streamlit_app.py`, Python 3.12, 서버 로컬 입력 비활성화 |
 | 공개 서비스 운영 강화 | ⬜ 계획 | 인증, 작업 시간 제한, 보관 정책, 사용자 API 키 관리 |
+| 공개 규칙 학습 데이터 | 🟡 1차 완료 | `learn`에서 규칙서 수집·구조화·임베딩 후보 생성, 검수와 실제 LoRA 학습은 대기 |
+| 프로젝트 전용 학습 | ⬜ 계획 | `pj_request_learn`에서 프로젝트 명명·역할·기능 프로필과 전용 인덱스 생성 |
+| 영향도·신뢰도 계산 | ⬜ 계획 | 변경 노드의 직접·간접·데이터·조건부 영향과 근거 경로 계산 |
 
-**현재 위치:** 단일 AST 생성과 코드 비교 MVP를 로컬·Cloud에서 사용할 수 있으며, 전체 목표에서는 Hybrid RAG·LLM을 붙이기 직전 단계입니다.
+**현재 위치:** 단일 AST 생성과 코드 비교 MVP를 로컬·Cloud에서 사용할 수 있다. 공개 규칙 수집 파이프라인이 추가됐으며, 다음 구현 구간은 프로젝트 전용 프로필, 공통 연결 그래프, 영향도·신뢰도 계산이다. 상세 체크리스트는 [`IMPACT_ANALYSIS_PLAN.md`](IMPACT_ANALYSIS_PLAN.md)에 있다.
 
 검증 기준:
 
@@ -121,6 +124,7 @@ APK·IPA 분석은 설치·실행 검증이나 원본 코드 복원을 의미하
 
 ```text
 QA_train/
+├─ IMPACT_ANALYSIS_PLAN.md # 사용자 영향도 분석 구현 체크리스트
 ├─ AST/                    # 분석·변환·비교·값 흐름 엔진과 CLI
 │  ├─ ast_analyzer.py
 │  ├─ artifact_conversion.py
@@ -131,15 +135,17 @@ QA_train/
 │  ├─ ipa_support.py
 │  ├─ tests/
 │  └─ reports/
-└─ streamlit/              # 웹 UI·세션 서비스·실행 설정
-   ├─ streamlit_app.py
-   ├─ qa_web_service.py
-   ├─ qa_ast_service.py    # 세션 스냅샷 하나의 AST 보고서 생성
-   ├─ ast_ui.py            # _AST 입력·결과·다운로드 화면
-   ├─ qa_flow_service.py
-   ├─ flow_ui.py
-   ├─ ast_runtime.py       # 형제 AST 프로젝트를 불러오는 경계
-   └─ tests/
+├─ streamlit/              # 웹 UI·세션 서비스·실행 설정
+│  ├─ streamlit_app.py
+│  ├─ qa_web_service.py
+│  ├─ qa_ast_service.py    # 세션 스냅샷 하나의 AST 보고서 생성
+│  ├─ ast_ui.py            # _AST 입력·결과·다운로드 화면
+│  ├─ qa_flow_service.py
+│  ├─ flow_ui.py
+│  ├─ ast_runtime.py       # 형제 AST 프로젝트를 불러오는 경계
+│  └─ tests/
+├─ learn/                  # 공개 규칙 수집·구조화·임베딩 학습 후보
+└─ pj_request_learn/       # 프로젝트 전용 프로필·인덱스 예정
 ```
 
 의존 방향은 `streamlit → AST` 한 방향입니다. AST 엔진은 Streamlit 없이 CLI로 독립 실행할 수 있습니다.
@@ -375,13 +381,17 @@ AST 결과, 값 흐름, 기능 매핑, TC, 문서 조각이 같은 ID 체계로 
 
 ## 다음 작업 우선순위
 
-1. AST·값 흐름·기능·TC를 묶는 공통 JSON 스키마 확정
-2. 기능 명세와 TC를 넣는 Hybrid RAG 수집·인덱싱 MVP
-3. 검색 결과에 출처와 코드 연결 경로를 표시하는 검증 화면
-4. 사용자 API 키 기반 LLM 설명 계층
-5. 변경 영향 기반 회귀 TC 추천과 우선순위 산정
-6. JavaScript/TypeScript, Java/Kotlin, C# 분석 어댑터
-7. 인증·업로드 제한·작업 시간 제한·보관 정책을 포함한 공개 운영 구성
+1. 공통 영향 결과 JSON 스키마 확정
+2. `pj_request_learn` 프로젝트 명명·역할·기능 프로필
+3. 기존 호출·값 흐름을 공통 연결 그래프로 통합
+4. 변경 심볼의 직접·간접·조건부 영향과 신뢰도 계산
+5. 기능 후보를 사용자가 수정·승인하는 화면
+6. API 계약과 DB 스키마·ORM·Migration 연결
+7. UI 프레임워크 연결
+8. 공통 규칙 임베딩과 프로젝트 RAG
+9. 검색 근거 기반 LLM 설명 계층
+10. JavaScript/TypeScript, Java/Kotlin, C# 분석 어댑터
+11. 인증·업로드 제한·보관 정책을 포함한 운영 구성
 
 ## 현재 한계
 
