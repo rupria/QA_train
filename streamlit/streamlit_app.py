@@ -71,6 +71,21 @@ def language_scope(language_id):
     return f"활성 기능: {', '.join(enabled)} · {suffix}. 선택한 언어의 파일만 파싱합니다."
 
 
+def language_selector():
+    language_id = st.selectbox(
+        "사용 언어",
+        ANALYSIS_LANGUAGE_IDS,
+        index=None,
+        format_func=language_label,
+        placeholder="언어를 선택하세요",
+        key="pair_language",
+        persist_state="session",
+        help="선택한 언어의 파서와 분석 기능만 작동합니다.",
+    )
+    st.caption(language_scope(language_id))
+    return language_id
+
+
 def initialize():
     if "work_session" not in st.session_state:
         st.session_state.work_session = new_session()
@@ -257,24 +272,13 @@ def prepare_side(spec, title):
 
 
 def pair_view():
+    language_id = st.session_state.get("pair_language")
     st.caption("왼쪽에 Ver.A, 오른쪽에 Ver.B를 지정하세요. 한 번의 버튼으로 두 입력 준비와 비교를 진행합니다.")
     left, right = st.columns(2)
     with left:
         base_spec = input_side("base", "Ver.A")
     with right:
         target_spec = input_side("target", "Ver.B")
-    with st.container(border=True):
-        language_id = st.selectbox(
-            "분석할 언어",
-            ANALYSIS_LANGUAGE_IDS,
-            index=None,
-            format_func=language_label,
-            placeholder="언어를 선택하세요",
-            key="pair_language",
-            persist_state="session",
-            help="선택한 언어의 파서와 분석 기능만 작동합니다.",
-        )
-        st.caption(language_scope(language_id))
     mode = st.segmented_control("비교 방식", ["자동", "코드 영향", "파일 구성"], default="자동", required=True, key="pair_mode", persist_state="session")
     st.caption("자동: 언어를 선택하면 해당 코드 영향 분석, 선택하지 않으면 파일 구성 비교를 진행합니다.")
     with st.expander("기능·TC 매핑과 분석 설정"):
@@ -534,7 +538,7 @@ def main():
     initialize()
     with st.sidebar:
         st.markdown("### QA compare")
-        st.caption("변경 근거에서 QA 검증 후보까지")
+        language_selector()
         st.divider()
         st.markdown("**지원하는 입력**")
         st.write("소스 · 엔진 프로젝트 · Git\n\nAPK · IPA 설치 패키지")

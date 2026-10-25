@@ -125,8 +125,12 @@ class StreamlitAppTests(unittest.TestCase):
         self.assertEqual(self.app.session_state.view, "비교")
         for side in ("base", "target"):
             self.assertEqual(self.app.segmented_control(key=f"{side}_method").value, "파일 업로드")
-        self.assertIsNone(self.app.selectbox(key="pair_language").value)
-        self.assertTrue(any("Python" in option for option in self.app.selectbox(key="pair_language").options))
+        language = self.app.sidebar.selectbox(key="pair_language")
+        self.assertEqual(language.label, "사용 언어")
+        self.assertIsNone(language.value)
+        self.assertTrue(any("Python" in option for option in language.options))
+        self.assertFalse(any("변경 근거에서 QA 검증 후보까지" in item.value
+                             for item in self.app.sidebar.caption))
         self.assertEqual(self.app.button(key="run_pair").label, "두 입력 비교")
         session = self.app.session_state.work_session
         self.app.run()
