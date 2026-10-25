@@ -111,6 +111,35 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual(manifest["files"][0]["language"], "TypeScript")
         self.assertEqual(manifest["files"][0]["category"], "source_code")
         self.assertFalse(manifest["capabilities"]["python_ast"])
+        self.assertEqual(manifest["capabilities"]["ast_languages"], ["typescript"])
+        self.assertTrue(manifest["capabilities"]["multilanguage_ast"])
+
+    def test_selected_typescript_parser_reports_symbol_change_and_upstream_candidate(self):
+        before = service.prepare_upload(
+            self.session, "component.ts",
+            b"function gate(x: number) { return x < 30; }\nfunction entry() { return gate(10); }\n",
+        )
+        after = service.prepare_upload(
+            self.session, "component.ts",
+            b"function gate(x: number) { return x <= 30; }\nfunction entry() { return gate(10); }\n",
+        )
+        report = service.compare_prepared(
+            self.session, before, after, language_id="typescript",
+        )
+        if any(error.get("kind") == "parser_unavailable" for error in report["errors"]):
+            self.skipTest("TypeScript grammar is not available in this offline test environment")
+        self.assertEqual(report["status"], "analyzed")
+        self.assertEqual(report["languages"], ["typescript"])
+        change = next(item for item in report["changes"] if item["symbol"] == "gate")
+        self.assertEqual(change["change_type"], "modified")
+        self.assertTrue(any(item["symbol"] == "entry" and item["depth"] == 1
+                            for item in change["impacts"]))
+
+    def test_selected_language_must_exist_on_both_inputs(self):
+        before = service.prepare_upload(self.session, "component.ts", b"export const value = 1;\n")
+        after = service.prepare_upload(self.session, "component.ts", b"export const value = 2;\n")
+        with self.assertRaisesRegex(ValueError, "python"):
+            service.compare_prepared(self.session, before, after, language_id="python")
 
     def test_engine_project_zip_preserves_assets_and_detects_version(self):
         data = zipped([("Assets/Scripts/Policy.cs", b"class Policy {}"),

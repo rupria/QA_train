@@ -13,6 +13,7 @@ import streamlit as st
 from ast_runtime import AST_ROOT
 
 from code_comparison import code_block, markdown_comparison
+from qa_ast import default_registry
 from ast_ui import ast_view
 from flow_ui import flow_view
 import qa_web_service as _qa_web_service
@@ -31,6 +32,43 @@ from qa_web_service import (
 LABELS = {"local": "로컬 소스", "engine": "엔진 프로젝트", "git": "Git", "apk": "APK", "ipa": "IPA"}
 CHANGE_LABELS = {"added": "추가", "deleted": "삭제", "modified": "수정", "unchanged": "동일"}
 LOCAL_ALLOWED = os.environ.get("QA_WEB_ALLOW_LOCAL", "1") == "1"
+
+_LANGUAGE_GROUPS = {
+    "javascript": "웹", "typescript": "웹", "vue": "웹", "svelte": "웹",
+    "astro": "웹", "html": "웹", "css": "웹",
+    "java": "JVM", "kotlin": "JVM", "scala": "JVM", "groovy": "JVM",
+    "csharp": ".NET", "razor": ".NET", "fsharp": ".NET", "vbnet": ".NET",
+    "c": "네이티브", "cpp": "네이티브", "objective_c": "네이티브",
+    "swift": "네이티브", "rust": "네이티브", "go": "네이티브", "dart": "네이티브",
+    "sql": "데이터·스크립트", "r": "데이터·스크립트", "julia": "데이터·스크립트",
+    "matlab": "데이터·스크립트",
+    "ruby": "데이터·스크립트", "php": "데이터·스크립트", "perl": "데이터·스크립트",
+    "lua": "데이터·스크립트", "python": "데이터·스크립트",
+    "terraform": "인프라", "bicep": "인프라", "rego": "인프라",
+    "dockerfile": "인프라", "make": "인프라", "cmake": "인프라",
+}
+_LANGUAGE_DESCRIPTORS = {item["id"]: item for item in default_registry().descriptors()}
+ANALYSIS_LANGUAGE_IDS = tuple(sorted(
+    _LANGUAGE_DESCRIPTORS,
+    key=lambda language: (_LANGUAGE_GROUPS.get(language, "기타"), _LANGUAGE_DESCRIPTORS[language]["name"]),
+))
+
+
+def language_label(language_id):
+    descriptor = _LANGUAGE_DESCRIPTORS[language_id]
+    return f"{_LANGUAGE_GROUPS.get(language_id, '기타')} · {descriptor['name']}"
+
+
+def language_scope(language_id):
+    if language_id is None:
+        return "언어를 선택하지 않으면 파서를 실행하지 않고 파일 구성만 비교할 수 있습니다."
+    capabilities = _LANGUAGE_DESCRIPTORS[language_id]["capabilities"]
+    enabled = [label for key, label in (
+        ("parse", "구문 변경"), ("symbols", "심볼"), ("imports", "import"),
+        ("calls", "호출 후보"), ("references", "참조"), ("value_flow", "값 흐름"),
+    ) if capabilities.get(key)]
+    suffix = "Python 정밀 분석기" if language_id == "python" else "Tree-sitter 공통 분석기"
+    return f"활성 기능: {', '.join(enabled)} · {suffix}. 선택한 언어의 파일만 파싱합니다."
 
 
 def initialize():
@@ -225,14 +263,31 @@ def pair_view():
         base_spec = input_side("base", "Ver.A")
     with right:
         target_spec = input_side("target", "Ver.B")
+    with st.container(border=True):
+        language_id = st.selectbox(
+            "분석할 언어",
+            ANALYSIS_LANGUAGE_IDS,
+            index=None,
+            format_func=language_label,
+            placeholder="언어를 선택하세요",
+            key="pair_language",
+            persist_state="session",
+            help="선택한 언어의 파서와 분석 기능만 작동합니다.",
+        )
+        st.caption(language_scope(language_id))
     mode = st.segmented_control("비교 방식", ["자동", "코드 영향", "파일 구성"], default="자동", required=True, key="pair_mode", persist_state="session")
-    st.caption("자동: 양쪽에 Python 소스가 있으면 코드 영향 분석, 그 외에는 파일 구성 비교를 진행합니다.")
+    st.caption("자동: 언어를 선택하면 해당 코드 영향 분석, 선택하지 않으면 파일 구성 비교를 진행합니다.")
     with st.expander("기능·TC 매핑과 분석 설정"):
-        mapping = st.file_uploader("기능 매핑 JSON", type=["json"], max_upload_size=1, key="pair_features")
+        mapping = (st.file_uploader("기능 매핑 JSON", type=["json"], max_upload_size=1, key="pair_features")
+                   if language_id == "python" else None)
         depth = st.slider("호출 역추적 깊이", 1, 100, 10, key="pair_depth", persist_state="session")
-        st.caption("코드 영향 분석에서 사용합니다. 제품의 기능명·TC는 매핑 JSON에 지정한 항목으로만 연결합니다.")
+        if language_id == "python":
+            st.caption("Python 코드 영향 분석에서 사용합니다. 기능명·TC는 매핑 JSON에 지정한 항목으로만 연결합니다.")
+        else:
+            st.caption("기능·TC 매핑은 현재 Python 정밀 분석에서만 지원합니다. 선택 언어는 구문·심볼·호출 후보를 분석합니다.")
     features = mapping.getvalue() if mapping is not None else None
-    signature = (input_signature(base_spec), input_signature(target_spec), mode, hashlib.sha256(features or b"").hexdigest(), depth)
+    signature = (input_signature(base_spec), input_signature(target_spec), mode, language_id,
+                 hashlib.sha256(features or b"").hexdigest(), depth)
     st.session_state.current_pair_signature = signature
     ready = base_spec["ready"] and target_spec["ready"]
     if st.button("두 입력 비교", type="primary", icon=":material/compare_arrows:", key="run_pair", disabled=not ready, width="stretch"):
@@ -253,15 +308,17 @@ def pair_view():
                 if snapshot_id(item) not in existing:
                     st.session_state.snapshots.append(item)
                     existing.add(snapshot_id(item))
-            ast_possible, inventory_possible, reason = comparison_availability(base, target)
+            ast_possible, inventory_possible, reason = comparison_availability(base, target, language_id)
             if not inventory_possible:
                 raise ValueError(reason)
-            actual_mode = ("코드 영향" if ast_possible else "파일 구성") if mode == "자동" else mode
+            actual_mode = ("코드 영향" if language_id is not None else "파일 구성") if mode == "자동" else mode
             if actual_mode == "코드 영향" and not ast_possible:
-                raise ValueError("코드 영향 분석에는 양쪽 모두 원본 Python 소스가 필요합니다. 파일 구성 비교를 선택하세요.")
+                selected = language_label(language_id) if language_id else "선택한 언어"
+                raise ValueError(f"코드 영향 분석에는 {selected} 원본 소스가 양쪽 모두 필요합니다. 언어 또는 파일 구성 비교를 확인하세요.")
             b, t = base["manifest"], target["manifest"]
             with st.spinner("두 입력의 변경 내용을 비교하고 있습니다."):
-                report = compare_prepared(st.session_state.work_session, b, t, features_json=features, max_depth=depth) if actual_mode == "코드 영향" else compare_inventory(b, t)
+                report = compare_prepared(st.session_state.work_session, b, t, language_id=language_id,
+                                          features_json=features, max_depth=depth) if actual_mode == "코드 영향" else compare_inventory(b, t)
                 evidence = file_evidence(b, t) if b["representation"] == "original_source" else None
             if evidence:
                 report["file_comparison"] = evidence
@@ -341,7 +398,8 @@ def snapshot_rows():
     return [{"입력": input_label(item), "종류": LABELS.get(item["manifest"]["source"]["kind"], "소스"),
              "파일 수": len(item["manifest"]["files"]),
              "상태": "준비 완료" if item["manifest"]["status"] == "prepared" else "확인 필요",
-             "비교 범위": "Python 코드·파일 구성" if item["manifest"]["capabilities"].get("python_ast") else "파일 구성"}
+             "비교 범위": (", ".join(item["manifest"]["capabilities"].get("ast_languages", [])) + " 코드·파일 구성")
+             if item["manifest"]["capabilities"].get("ast_languages") else "파일 구성"}
             for item in st.session_state.snapshots]
 
 
@@ -354,7 +412,7 @@ def snapshot_brief(manifest):
                 st.write(message)
 
 
-def comparison_availability(base, target):
+def comparison_availability(base, target, language_id=None):
     if snapshot_id(base) == snapshot_id(target):
         return False, False, "Ver.A와 Ver.B에 서로 다른 입력을 선택하세요."
     b, t = base["manifest"], target["manifest"]
@@ -370,7 +428,11 @@ def comparison_availability(base, target):
     complete = all(m["status"] == "prepared" for m in (b, t))
     if not complete:
         return False, False, "일부 파일이 누락된 입력입니다. 스냅샷의 확인 사항을 해결한 뒤 다시 준비하세요."
-    ast = all(m["capabilities"].get("python_ast") and m["representation"] == "original_source" for m in (b, t))
+    ast = bool(language_id) and all(
+        language_id in m["capabilities"].get("ast_languages", [])
+        and m["representation"] == "original_source"
+        for m in (b, t)
+    )
     return ast, True, ""
 
 
@@ -414,7 +476,8 @@ def render_code_report(report):
             with st.expander("호출·참조 근거"):
                 st.dataframe([{"버전": "Ver.A" if p["side"] == "base" else "Ver.B", "심볼": p["symbol_id"], "깊이": p["depth"], "경로": " → ".join([e["caller"] for e in p["evidence_chain"]] + [f"{change['file']}::{change['symbol']}"])} for p in change["impacts"]], hide_index=True, width="stretch")
     else:
-        st.success("비교 가능한 Python 범위에서 AST 변경이 없습니다.")
+        languages = ", ".join(report.get("languages", [])) or "선택 언어"
+        st.success(f"비교 가능한 {languages} 범위에서 AST 변경이 없습니다.")
     downloads(report, markdown_comparison(report))
     with st.expander("분석 범위·확인 사항"):
         for text in report["warnings"] + report["limitations"]:
@@ -489,7 +552,7 @@ def main():
         if st.session_state.pop("session_cleanup_notice", False):
             st.success("현재 세션의 스냅샷·보고서·임시 입력을 삭제했습니다.")
         st.divider()
-        st.caption("Python: 단일 AST · 코드 영향 분석\n\n다른 소스·패키지: 파일 구성 비교")
+        st.caption("선택 언어: 코드 영향 분석\n\nPython: 값 흐름 포함\n\nAPK·IPA: 파일 구성 비교")
     st.title("QA compare")
     st.write("단일 소스의 AST를 만들거나 Ver.A·Ver.B의 변경 내용을 비교하세요.")
     compare_tab, flow_tab, snapshot_tab, ast_tab = st.tabs(

@@ -66,6 +66,7 @@ class FlowUiTests(unittest.TestCase):
         for side, manifest in zip(("base", "target"), manifests):
             self.app.segmented_control(key=f"{side}_method").set_value("준비된 입력").run()
             self.app.selectbox(key=f"{side}_snapshot").select(manifest["id"]).run()
+        self.app.selectbox(key="pair_language").select("python").run()
         self.app.button(key="run_pair").click().run()
         self.assert_clean()
         return self.app.session_state.pair_analysis

@@ -70,6 +70,10 @@ class StreamlitAppTests(unittest.TestCase):
         self.app.text_input(key=f"{side}_location").set_value(str(path)).run()
         self.assert_clean()
 
+    def select_language(self, language_id="python"):
+        self.app.selectbox(key="pair_language").select(language_id).run()
+        self.assert_clean()
+
     def install_snapshots(self, manifests):
         self.app.session_state.snapshots = [{"label": f"입력 {i}", "manifest": value} for i, value in enumerate(manifests)]
         self.app.run()
@@ -121,6 +125,8 @@ class StreamlitAppTests(unittest.TestCase):
         self.assertEqual(self.app.session_state.view, "비교")
         for side in ("base", "target"):
             self.assertEqual(self.app.segmented_control(key=f"{side}_method").value, "파일 업로드")
+        self.assertIsNone(self.app.selectbox(key="pair_language").value)
+        self.assertTrue(any("Python" in option for option in self.app.selectbox(key="pair_language").options))
         self.assertEqual(self.app.button(key="run_pair").label, "두 입력 비교")
         session = self.app.session_state.work_session
         self.app.run()
@@ -128,10 +134,23 @@ class StreamlitAppTests(unittest.TestCase):
         self.assertEqual(self.app.session_state.snapshots, [])
         self.assertFalse((session / "input").exists())
 
+    def test_language_selection_controls_active_scope_and_python_mapping(self):
+        self.app.selectbox(key="pair_language").select("typescript").run()
+        self.assert_clean()
+        self.assertTrue(any("Tree-sitter" in item.value and "호출 후보" in item.value
+                            for item in self.app.caption))
+        self.assertNotIn("pair_features", {item.key for item in self.app.get("file_uploader")})
+        self.app.selectbox(key="pair_language").select("python").run()
+        self.assert_clean()
+        self.assertTrue(any("Python 정밀 분석기" in item.value and "값 흐름" in item.value
+                            for item in self.app.caption))
+        self.assertIn("pair_features", {item.key for item in self.app.get("file_uploader")})
+
     def test_local_pair_one_button_shows_diff_and_rerun_does_not_reprocess(self):
         before, after = self.source_files()
         self.local_side("base", before)
         self.local_side("target", after)
+        self.select_language()
         with patch.object(service, "prepare_local", wraps=service.prepare_local) as prepare, \
                 patch.object(service, "compare_prepared", wraps=service.compare_prepared) as compare:
             self.app.button(key="run_pair").click().run()
@@ -162,6 +181,7 @@ class StreamlitAppTests(unittest.TestCase):
     def test_prepared_pair_keeps_candidates_and_tc_mapping_without_new_uploads(self):
         manifests = self.source_snapshots()
         self.install_snapshots(manifests)
+        self.select_language()
         with self.upload_patch({"pair_features": self.mapping()}), patch.object(service, "prepare_upload") as prepare:
             self.app.run()
             self.app.button(key="run_pair").click().run()
@@ -184,6 +204,7 @@ class StreamlitAppTests(unittest.TestCase):
 
     def test_changed_mapping_hides_result_and_next_compare_has_no_old_mapping(self):
         self.install_snapshots(self.source_snapshots())
+        self.select_language()
         with self.upload_patch({"pair_features": self.mapping()}):
             self.app.run()
             self.app.button(key="run_pair").click().run()
@@ -265,6 +286,7 @@ class StreamlitAppTests(unittest.TestCase):
         self.assertEqual(self.app.selectbox(key="target_branch").value, "main")
         self.assertEqual(self.app.selectbox(key="base_commit").value, previous)
         self.assertEqual(self.app.selectbox(key="target_commit").value, latest)
+        self.select_language()
         self.app.button(key="run_pair").click().run()
         result = self.result()
         self.assertEqual(result["mode"], "코드 영향")
@@ -287,6 +309,7 @@ class StreamlitAppTests(unittest.TestCase):
         self.query_git("base", repo)
         self.local_side("target", repo)
         self.assertEqual(self.app.selectbox(key="base_commit").value, previous)
+        self.select_language()
         self.app.button(key="run_pair").click().run()
         result = self.result()
         self.assertEqual(result["mode"], "코드 영향")

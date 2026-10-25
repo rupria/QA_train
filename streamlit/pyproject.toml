@@ -5,6 +5,7 @@ description = "Streamlit UI for the QA comparison engine in ../AST"
 requires-python = ">=3.12"
 dependencies = [
     "streamlit>=1.64,<2",
+    "tree-sitter-language-pack>=1.22.1,<2",
 ]
 
 [tool.uv]

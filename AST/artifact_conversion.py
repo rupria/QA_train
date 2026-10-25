@@ -691,7 +691,8 @@ def convert_input(source: Path, kind="auto", output=None, ref=None,
         content_root=str(output / "content"), source=dict(kind=kind, path=str(source), is_file=source.is_file(), ref=None,
             commit_sha=None, source_root=source_root), representation="package_payload" if kind in {"apk", "ipa"} else "original_source",
         engine=dict(name=None, version=None, detection="not_identified"), files=[], skipped=[], warnings=[],
-        capabilities=dict(python_ast=False, original_source=kind not in {"apk", "ipa"}, package_inventory=kind in {"apk", "ipa"}, restored_source=False),
+        capabilities=dict(python_ast=False, multilanguage_ast=False, ast_languages=[],
+            original_source=kind not in {"apk", "ipa"}, package_inventory=kind in {"apk", "ipa"}, restored_source=False),
         failure_cleanup="Remove only the newly created provisional output after verifying its ownership marker, exact absolute path and non-reparse status.")
     selected, git, entries, archive, apk_before, ipa_bundles = source, None, None, None, None, None
     try:
@@ -807,15 +808,26 @@ def convert_input(source: Path, kind="auto", output=None, ref=None,
             manifest["skipped"].sort(key=lambda item: (item["path"], item["reason_code"]))
             if kind not in {"apk", "ipa"}:
                 source_files = [item for item in manifest["files"] if item["category"] == "source_code"]
-                languages = {item.get("language") for item in source_files}
-                manifest["capabilities"]["python_ast"] = any(
-                    PurePosixPath(item["path"]).suffix.lower() in {".py", ".ipynb"}
-                    and item.get("language") in {"Python", "Python notebook"}
+                from qa_ast import default_registry
+                registry = default_registry()
+                detected = registry.detect(content)
+                ast_languages = sorted(detected)
+                manifest["capabilities"]["ast_languages"] = ast_languages
+                manifest["capabilities"]["multilanguage_ast"] = bool(ast_languages)
+                manifest["capabilities"]["python_ast"] = "python" in detected
+                adapters = [registry.get(item["id"]) for item in registry.descriptors()]
+                unsupported = sorted({
+                    item.get("language")
                     for item in source_files
-                )
-                unsupported = sorted(languages - {"Python", "Python notebook"})
+                    if item.get("language") and not any(
+                        adapter.supports_file(content / PurePosixPath(item["path"]))
+                        for adapter in adapters
+                    )
+                })
                 if unsupported:
-                    manifest["warnings"].append("Current AST comparison supports Python only; other source languages were preserved but not parsed: " + ", ".join(unsupported))
+                    manifest["warnings"].append("AST 파서가 아직 연결되지 않은 소스 언어는 원본만 보존했습니다: " + ", ".join(unsupported))
+                if any(language != "python" for language in ast_languages):
+                    manifest["warnings"].append("비-Python 언어는 Tree-sitter 구문·심볼·import·호출 후보를 분석합니다. 타입 추론과 값 흐름은 Python 정밀 분석에서만 지원합니다.")
                 if any(item.get("language") == "Python" and PurePosixPath(item["path"]).suffix.lower() not in {".py"}
                        for item in source_files):
                     manifest["warnings"].append("Python scripts identified by filename or shebang were preserved, but current AST comparison parses only .py and .ipynb files.")

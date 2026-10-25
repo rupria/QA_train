@@ -184,6 +184,9 @@ def flow_view():
     if comparison.get("mode") != "compare":
         st.info("AST 연결·해석은 원본 Python 코드 영향 비교에서 사용할 수 있습니다. APK·IPA와 파일 구성 결과는 값 흐름을 해석하지 않습니다.")
         return
+    if comparison.get("languages") != ["python"]:
+        st.info("값 흐름 연결·해석은 Python 정밀 분석 결과에서만 사용할 수 있습니다. 다른 언어는 비교 탭의 구문·심볼·호출 영향 후보를 확인하세요.")
+        return
     if not comparison["changes"]:
         st.info("해석할 AST 변경 지점이 없습니다.")
         return

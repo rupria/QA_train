@@ -36,9 +36,24 @@ class LanguageArchitectureTests(unittest.TestCase):
         hidden.parent.mkdir()
         hidden.write_text("x = 1\n", encoding="utf-8")
         self.assertEqual(registry.detect(self.work), {"python": 1})
-        descriptor = registry.descriptors()[0]
+        descriptor = next(item for item in registry.descriptors() if item["id"] == "python")
         self.assertTrue(descriptor["capabilities"]["calls"])
         self.assertFalse(descriptor["capabilities"]["db_mapping"])
+        self.assertIn("typescript", {item["id"] for item in registry.descriptors()})
+
+    def test_registry_contains_requested_language_families(self):
+        available = {item["id"] for item in default_registry().descriptors()}
+        expected = {
+            "javascript", "typescript", "vue", "svelte", "astro", "html", "css",
+            "java", "kotlin", "scala", "groovy",
+            "csharp", "razor", "fsharp", "vbnet",
+            "c", "cpp", "objective_c", "swift", "rust", "go", "dart",
+            "sql", "r", "julia", "ruby", "php", "perl", "lua",
+            "terraform", "bicep", "rego", "dockerfile", "make", "cmake",
+            "elixir", "erlang", "clojure", "haskell", "ocaml", "solidity",
+            "graphql", "protobuf", "vhdl", "matlab",
+        }
+        self.assertEqual(expected - available, set())
 
     def test_python_adapter_emits_language_neutral_graph(self):
         graph = default_registry().get("python").analyze(self._source())

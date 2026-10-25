@@ -15,6 +15,7 @@ from .common.models import (
     SourceRange,
 )
 from .registry import default_registry
+from .comparison import build_language_comparison, merge_comparison_reports
 
 __all__ = [
     "AnalysisBoundary",
@@ -30,4 +31,6 @@ __all__ = [
     "Resolution",
     "SourceRange",
     "default_registry",
+    "build_language_comparison",
+    "merge_comparison_reports",
 ]

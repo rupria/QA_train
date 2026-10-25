@@ -19,6 +19,7 @@ from ast_runtime import AST_ROOT
 
 import artifact_conversion as conversion
 from code_comparison import build_comparison
+from qa_ast import build_language_comparison
 
 
 MAX_UPLOAD_BYTES = 200 * 1024**2
@@ -405,12 +406,20 @@ def _verified(manifest: dict) -> tuple[dict, Path]:
     return stored, output
 
 
-def compare_prepared(session, base, target, features_json=None, max_depth=10) -> dict:
+def compare_prepared(session, base, target, *, language_id: str = "python",
+                     features_json=None, max_depth=10) -> dict:
     session = _session(session)
     base, base_path = _verified(base)
     target, target_path = _verified(target)
     if any(path.parent != session / "snapshots" for path in (base_path, target_path)):
         raise ValueError("현재 웹 세션에서 준비한 스냅샷끼리만 비교할 수 있습니다.")
+    if not isinstance(language_id, str) or not language_id.strip():
+        raise ValueError("코드 영향 분석에 사용할 언어를 선택하세요.")
+    language_id = language_id.strip().lower()
+    supported = [set(item.get("capabilities", {}).get("ast_languages", []))
+                 for item in (base, target)]
+    if any(language_id not in languages for languages in supported):
+        raise ValueError(f"선택한 언어({language_id})의 원본 소스가 Ver.A와 Ver.B 양쪽에 필요합니다.")
     features_path = None
     if features_json is not None:
         if isinstance(features_json, bytes):
@@ -425,7 +434,45 @@ def compare_prepared(session, base, target, features_json=None, max_depth=10) ->
         features_path = session / "features" / (uuid.uuid4().hex + ".json")
         features_path.parent.mkdir(exist_ok=True)
         features_path.write_text(text, encoding="utf-8")
-    return build_comparison(base_path, target_path, features_path=features_path, max_depth=max_depth)
+    if language_id == "python":
+        report = build_comparison(base_path, target_path, features_path=features_path, max_depth=max_depth)
+        report["analysis_engine"] = "python.ast"
+        report["languages"] = ["python"]
+        return report
+    if features_path is not None:
+        features_path.unlink(missing_ok=True)
+    base_source = _selected_analysis_source(base, base_path)
+    target_source = _selected_analysis_source(target, target_path)
+    report = build_language_comparison(base_source, target_source, [language_id], max_depth=max_depth)
+    if features_json is not None:
+        report["warnings"].append("기능·TC 매핑은 현재 Python 정밀 분석에서만 적용됩니다.")
+    report["conversion_inputs"] = {
+        "base": _conversion_provenance(base, base_path),
+        "target": _conversion_provenance(target, target_path),
+    }
+    return report
+
+
+def _selected_analysis_source(manifest: dict, snapshot_path: Path) -> Path:
+    content = snapshot_path / "content"
+    source = manifest.get("source", {})
+    if source.get("is_file") or source.get("selected_is_file"):
+        files = [item["path"] for item in manifest.get("files", [])
+                 if item.get("category") == "source_code"]
+        if len(files) == 1:
+            return content / conversion._safe_relative(files[0])
+    return content
+
+
+def _conversion_provenance(manifest: dict, snapshot_path: Path) -> dict:
+    return {
+        "snapshot_path": str(snapshot_path),
+        "source": manifest.get("source"),
+        "representation": manifest.get("representation"),
+        "engine": manifest.get("engine"),
+        "manifest_path": str(snapshot_path / "manifest.json"),
+        "warnings": manifest.get("warnings", []),
+    }
 
 
 def compare_inventory(base, target) -> dict:
