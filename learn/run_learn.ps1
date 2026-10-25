@@ -1,8 +1,12 @@
 param(
-    [ValidateSet("catalog", "policy", "fetch", "build", "all")]
+    [ValidateSet("catalog", "policy", "fetch", "build", "pack", "all")]
     [string]$Command = "all",
     [string[]]$Source = @(),
-    [switch]$Force
+    [switch]$Force,
+    [string]$PackVersion = "0.1.0-draft",
+    [string[]]$ReviewStatus = @(),
+    [string]$PackOutput = "",
+    [string]$Embeddings = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,6 +22,18 @@ foreach ($SourceId in $Source) {
 }
 if ($Force) {
     $Arguments += "--force"
+}
+if ($Command -eq "pack") {
+    $Arguments += @("--pack-version", $PackVersion)
+    foreach ($Status in $ReviewStatus) {
+        $Arguments += @("--review-status", $Status)
+    }
+    if ($PackOutput) {
+        $Arguments += @("--pack-output", $PackOutput)
+    }
+    if ($Embeddings) {
+        $Arguments += @("--embeddings", $Embeddings)
+    }
 }
 $Arguments += $Command
 & $PythonPath @Arguments

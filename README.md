@@ -2,9 +2,9 @@
 
 하나의 소스에서 AST를 생성하거나, Ver.A와 Ver.B의 로컬 코드·Git 버전·엔진 프로젝트·APK·IPA를 비교해 변경 지점과 QA 영향 후보를 찾는 정적 분석 프로젝트입니다.
 
-현재는 **1차 MVP와 Streamlit Cloud 배포가 완료된 상태**입니다. `_AST`에서 단일 Python 소스의 트리형·정리형 보고서를 만들고, 비교 화면에서는 두 버전의 AST 변경·호출 관계·값 흐름을 분석합니다. 다음 개발 구간은 Hybrid RAG, LLM 해석, 다국어 분석입니다.
+현재는 **1차 MVP와 Streamlit Cloud 기능 확인 환경이 완료된 상태**입니다. Cloud 앱은 기존 비교·AST 기능을 빠르게 확인하는 용도로 유지하고, 로컬 앱은 공개 기본 규칙 팩을 검증·설치해 로컬 분석에 사용하는 구조를 준비하고 있습니다. 외부 LLM API는 사용하지 않습니다.
 
-> 기준일: 2026-10-23
+> 기준일: 2026-10-24
 >
 > 운영 형태: 로컬 실행 / [Streamlit Cloud](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/)
 
@@ -29,32 +29,35 @@ Ver.A / Ver.B 입력
 | 기본 파일 비교 | ✅ 완료 | 상대 경로·파일 크기·SHA-256 기준으로 추가·삭제·수정 탐지 |
 | Git 버전 선택 | ✅ 완료 | 저장소의 브랜치를 목록에서 고른 뒤 최근 커밋 선택, 서로 다른 저장소도 Ver.A·Ver.B에서 독립 조회 |
 | Python AST 분석 | ✅ 완료 | 함수·클래스·import·호출·변수 대입·제어 흐름 추출 |
+| 언어 중립 분석 구조 | 🟡 1차 완료 | 공통 그래프·근거·분석 한계·기능표·어댑터 레지스트리와 Python 어댑터 |
 | 단일 입력 AST 화면 | ✅ 완료 | 맨 오른쪽 `_AST` 탭에서 단일 소스 분석, 데이터·설정 파일을 포함한 프로젝트 트리와 AST 보고서 다운로드 |
 | 코드 영향 분석 | ✅ 완료 | 변경 심볼과 상위 호출·참조 관계 탐색 |
 | 기능·TC 수동 매핑 | 🟡 1차 완료 | 사용자가 제공한 기능 매핑 JSON으로 코드 진입점과 기존 TC 후보 연결 |
 | UI·API·DB 매핑 | ⬜ 계획 | 화면·컴포넌트·API·백엔드 심볼·데이터 키·TC를 승인 상태와 함께 연결 |
 | 값 흐름 해석 | 🟡 1차 완료 | 반환값 → 변수 → 인자 → 매개변수 → 반환·상태 쓰기 후보 추적 |
-| Streamlit UI | ✅ 완료 | Ver.A·Ver.B 준비, 비교, 흐름 해석, 결과 다운로드를 한 화면에서 처리 |
+| 기존 Streamlit UI | ✅ 호환 유지 | Ver.A·Ver.B 준비, 비교, 흐름 해석, 결과 다운로드 |
+| 로컬 웹 앱 전환 | 🟡 규칙 팩 기반 구현 | 버전 규칙 팩 생성·SHA-256 검증·원자적 로컬 설치 완료, 브라우저 UI와 자동 업데이트는 다음 단계 |
 | AST/UI 역할 분리 | ✅ 완료 | `AST`는 분석 엔진, `streamlit`은 UI·웹 세션으로 독립 구성 |
 | APK·IPA 분석 | 🟡 일부 지원 | 동일 형식끼리 파일 구성 비교, IPA `Info.plist` 메타데이터 확인 |
-| Hybrid RAG | ⬜ 계획 | 코드 근거와 기능 명세·TC·프로젝트 문서를 함께 검색 |
-| LLM 해석 | ⬜ 계획 | 검색 근거로 기능 영향과 QA 확인 항목을 설명 |
+| 기본 규칙 검색 | 🟡 구조 완료 | 기본 규칙만 임베딩하며 사용자 프로젝트 코드는 임베딩 저장하지 않음 |
+| 로컬 LLM 해석 | ⬜ 계획 | 검색 근거와 AST를 로컬 코드 모델에 전달해 기능 영향과 QA 확인 항목을 설명 |
 | 다국어 코드 분석 | ⬜ 계획 | JavaScript/TypeScript, Java/Kotlin, C#, C++용 파서·어댑터 |
 | Streamlit Cloud 배포 | ✅ 완료 | `main`의 `streamlit/streamlit_app.py`, Python 3.12, 서버 로컬 입력 비활성화 |
-| 공개 서비스 운영 강화 | ⬜ 계획 | 인증, 작업 시간 제한, 보관 정책, 사용자 API 키 관리 |
-| 공개 규칙 학습 데이터 | 🟡 1차 완료 | `learn`에서 규칙서 수집·구조화·임베딩 후보 생성, 검수와 실제 LoRA 학습은 대기 |
-| 프로젝트 전용 학습 | ⬜ 계획 | `pj_request_learn`에서 프로젝트 명명·역할·기능 프로필과 전용 인덱스 생성 |
+| 공개 서비스 운영 강화 | ⬜ 계획 | 인증, 작업 시간 제한과 임시 세션 보관 정책 |
+| 공개 규칙 학습 데이터 | 🟡 팩 구조 완료 | 733개 후보는 모두 `pending`; `metadata_only` 초안 팩 생성 완료, 검수와 규칙 임베딩은 대기 |
+| 로컬 모델 배포 | 🟡 다운로드 기반 구현 | 고정된 임베딩 모델을 최초 실행 시 내려받는 경계 구현, 코드 분석용 로컬 LLM은 미선정 |
+| 로컬 프로젝트 분석 | ⬜ 계획 | 프로젝트 코드는 AST·관계 그래프·통계로 분석하고 공통 규칙이나 프로젝트 벡터 DB에 누적하지 않음 |
 | 영향도·신뢰도 계산 | ⬜ 계획 | 변경 노드의 직접·간접·데이터·조건부 영향과 근거 경로 계산 |
 
-**현재 위치:** 단일 AST 생성과 코드 비교 MVP를 로컬·Cloud에서 사용할 수 있다. 공개 규칙 수집 파이프라인이 추가됐으며, 다음 구현 구간은 프로젝트 전용 프로필, 공통 연결 그래프, 영향도·신뢰도 계산이다. 상세 체크리스트는 [`IMPACT_ANALYSIS_PLAN.md`](IMPACT_ANALYSIS_PLAN.md)에 있다.
+**현재 위치:** Cloud 앱은 기존 비교·AST 기능 확인용으로 유지한다. 로컬 앱은 공개 기본 규칙 팩만 웹에서 받고, 임베딩 모델과 향후 코드 분석 모델은 사용자 PC에 내려받아 실행한다. 사용자 코드·AST·DB 스키마·분석 결과는 외부로 보내지 않으며 프로젝트 코드는 임베딩 저장하지 않는다. 현재는 규칙 팩 생성·검증·로컬 설치 경계까지 구현했다. 상세 체크리스트는 [`IMPACT_ANALYSIS_PLAN.md`](IMPACT_ANALYSIS_PLAN.md)에 있다.
 
 검증 기준:
 
-- AST 엔진 테스트: 75개
-- Streamlit 프로젝트 테스트: 83개
-- 전체 회귀 테스트: 158개
+- 마지막 전체 회귀 기록: AST 엔진 78개 + Streamlit 83개 + 당시 로컬 런타임 6개 = 167개
+- 이번 규칙 팩 변경 검증: `learn` 7개 + 현재 `local_runtime` 10개 = 17개 통과
+- 이번 변경은 Cloud·Streamlit 코드를 수정하지 않아 AST·Streamlit 전체 회귀는 다시 실행하지 않음
 
-위 수치는 마지막 전체 회귀 실행 기록이다. 일반 업데이트에서는 변경한 기능과 직접 연결된 테스트만 실행한다. 전체 회귀 테스트는 사용자가 요청할 때 실행한다.
+전체 회귀 기록과 이번 변경 범위 테스트를 구분한다. 일반 업데이트에서는 변경한 기능과 직접 연결된 테스트만 실행하며, 전체 회귀 테스트는 별도로 실행했을 때 수치를 갱신한다.
 
 반복 비교용 파일은 [`Test/ast_compare_fixture.py`](Test/ast_compare_fixture.py) 하나를 Git에서 계속 추적한다. 비교 기능을 확인할 때 `git log --oneline -- Test/ast_compare_fixture.py`에서 기준·대상 커밋을 고르고 비교 루트를 `Test`로 지정한다. 새 fixture를 매번 만들고 삭제하지 않으며, 비교 시나리오를 바꿀 필요가 있을 때만 이 파일의 `FIXTURE_REVISION`과 통제된 코드 구간을 갱신한다.
 
@@ -126,13 +129,15 @@ APK·IPA 분석은 설치·실행 검증이나 원본 코드 복원을 의미하
 QA_train/
 ├─ IMPACT_ANALYSIS_PLAN.md # 사용자 영향도 분석 구현 체크리스트
 ├─ AST/                    # 분석·변환·비교·값 흐름 엔진과 CLI
-│  ├─ ast_analyzer.py
-│  ├─ artifact_conversion.py
-│  ├─ code_comparison.py
-│  ├─ code_relations.py
-│  ├─ code_flow.py
-│  ├─ code_snapshot.py
+│  ├─ qa_ast/
+│  │  ├─ common/           # 언어 중립 노드·연결·근거·어댑터 계약
+│  │  └─ languages/
+│  │     └─ python/        # Python 파서·스냅샷·관계·비교·값 흐름
+│  ├─ ast_analyzer.py      # 기존 CLI 호환 진입점
+│  ├─ artifact_conversion.py # Git·ZIP·로컬·엔진·APK·IPA 공통 입력
+│  ├─ code_*.py            # 기존 import 호환 진입점
 │  ├─ ipa_support.py
+│  ├─ ARCHITECTURE.md
 │  ├─ tests/
 │  └─ reports/
 ├─ streamlit/              # 웹 UI·세션 서비스·실행 설정
@@ -144,18 +149,20 @@ QA_train/
 │  ├─ flow_ui.py
 │  ├─ ast_runtime.py       # 형제 AST 프로젝트를 불러오는 경계
 │  └─ tests/
-├─ learn/                  # 공개 규칙 수집·구조화·임베딩 학습 후보
-└─ pj_request_learn/       # 프로젝트 전용 프로필·인덱스 예정
+├─ learn/                  # 공개 규칙 수집·검토·규칙 팩 생성
+├─ local_runtime/          # 규칙 팩 설치·검증과 로컬 모델 다운로드·실행
+└─ pj_request_learn/       # 로컬 프로젝트 프로필 예정, 코드 임베딩 제외
 ```
 
-의존 방향은 `streamlit → AST` 한 방향입니다. AST 엔진은 Streamlit 없이 CLI로 독립 실행할 수 있습니다.
+의존 방향은 `웹 UI/로컬 API 및 기존 streamlit → AST·local_runtime`입니다. AST 엔진은 특정 웹 프레임워크 없이 CLI나 로컬 API에서 독립 실행할 수 있습니다. `artifact_conversion.py`의 Git·ZIP·로컬·엔진·APK·IPA 입력은 그대로 유지됩니다.
 
 ```mermaid
 flowchart LR
     A[Ver.A] --> S[입력 스냅샷]
     B[Ver.B] --> S
     S --> F[파일 비교]
-    F --> D[Python AST 변경]
+    F --> L[선택한 언어 어댑터]
+    L --> D[공통 그래프 변경]
     D --> R[호출·참조 영향]
     R --> V[값 흐름 해석]
     V --> M[기능·기존 TC 매핑]
@@ -168,9 +175,39 @@ flowchart LR
 
 Python 3.12와 [uv](https://docs.astral.sh/uv/)가 필요합니다.
 
-### Streamlit 웹 앱
+### 로컬 규칙 팩 준비
 
-[Cloud 앱 열기](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/). 이 PC를 꺼도 접속할 수 있으며, Cloud에서는 파일 업로드와 공개 GitHub 입력을 사용합니다. Cloud의 세션 파일은 영구 보관을 보장하지 않으므로 필요한 결과는 다운로드합니다.
+Cloud 앱은 이 팩을 사용하지 않는다. 로컬 앱용 규칙 팩은 검토 상태와 임베딩 준비 상태를 manifest에 기록하고, SHA-256을 검증한 뒤 `%LOCALAPPDATA%\QA Train\rules\`에 설치한다.
+
+```powershell
+cd QA_train\learn
+
+# 현재 pending 규칙의 구조 확인용 초안
+.\run_learn.ps1 pack -PackVersion 0.1.0-draft -ReviewStatus pending
+
+cd ..\local_runtime
+uv run qa-rules install ..\learn\data\packs\base-rules-0.1.0-draft.zip
+uv run qa-rules status
+```
+
+현재 초안은 733개 `pending` 규칙을 담은 `metadata_only` 팩이며 `release_eligible: false`, `semantic_ready: false`다. 검토 완료 규칙만 선별하고 기본 규칙 임베딩을 추가한 뒤 정식 배포 팩으로 승격한다.
+
+### 로컬 모델 최초 준비
+
+설치 앱은 이 과정을 자동으로 실행할 예정이다. 개발 환경에서는 상태를 먼저 확인하고, 모델이 없을 때만 다운로드한다.
+
+```powershell
+cd QA_train\local_runtime
+uv sync --extra inference
+.\run_model_setup.ps1 status
+.\run_model_setup.ps1 download
+```
+
+모델 버전은 매니페스트의 커밋 SHA로 고정된다. 다운로드에 사용자 코드나 공통 그래프를 포함하지 않으며, 완료된 모델은 사용자 로컬 데이터 폴더에서 재사용한다.
+
+### 기존 Streamlit 웹 앱
+
+[Cloud 앱 열기](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/). Cloud는 기존 비교·AST 기능을 빠르게 확인하는 환경으로 유지합니다. 파일 업로드와 공개 GitHub 입력을 사용하며 로컬 규칙 팩·로컬 모델 분석은 실행하지 않습니다. Cloud의 세션 파일은 영구 보관을 보장하지 않으므로 필요한 결과는 다운로드합니다.
 
 ```powershell
 git clone https://github.com/rupria/QA_train.git
@@ -381,17 +418,16 @@ AST 결과, 값 흐름, 기능 매핑, TC, 문서 조각이 같은 ID 체계로 
 
 ## 다음 작업 우선순위
 
-1. 공통 영향 결과 JSON 스키마 확정
-2. `pj_request_learn` 프로젝트 명명·역할·기능 프로필
-3. 기존 호출·값 흐름을 공통 연결 그래프로 통합
-4. 변경 심볼의 직접·간접·조건부 영향과 신뢰도 계산
-5. 기능 후보를 사용자가 수정·승인하는 화면
-6. API 계약과 DB 스키마·ORM·Migration 연결
-7. UI 프레임워크 연결
-8. 공통 규칙 임베딩과 프로젝트 RAG
-9. 검색 근거 기반 LLM 설명 계층
-10. JavaScript/TypeScript, Java/Kotlin, C# 분석 어댑터
-11. 인증·업로드 제한·보관 정책을 포함한 운영 구성
+1. 733개 규칙 후보 검토와 `accepted` 상태 확정
+2. 고정된 Qwen3 Embedding revision으로 기본 규칙을 한 번 임베딩
+3. `semantic_ready` 규칙 팩과 SHA-256 생성
+4. GitHub Releases에 정식 규칙 팩 업로드
+5. 로컬 앱의 규칙 팩 버전 확인·다운로드 진행 상태 연결
+6. AST 결과와 기본 규칙 검색 결과를 결합하는 로컬 분석 입력 확정
+7. 코드 분석용 로컬 LLM 후보 선정과 하드웨어 등급별 실행 정책
+8. 공통 영향 결과 JSON과 신뢰도 계산
+9. JavaScript/TypeScript, Java/Kotlin, C# 분석 어댑터
+10. 브라우저 UI와 설치 파일 구성
 
 ## 현재 한계
 
@@ -402,6 +438,8 @@ AST 결과, 값 흐름, 기능 매핑, TC, 문서 조각이 같은 ID 체계로 
 - APK·IPA에서 원본 코드를 완전히 복원하지 않습니다.
 - APK·IPA의 설치, 서명, 실행, 기기 호환성은 검증하지 않습니다.
 - Cloud 배포는 공개 앱이며 서버 로컬 경로 입력을 차단합니다. 인증, 작업 시간 제한과 데이터 보관 정책은 추가 운영 과제입니다.
+- 현재 규칙 팩은 733개 후보가 모두 `pending`인 구조 확인용 초안이며 임베딩과 정식 배포는 완료되지 않았습니다.
+- 코드 분석용 로컬 LLM은 아직 선정·연결하지 않았습니다. 외부 LLM API와 사용자 API 토큰은 사용하지 않는 방향입니다.
 
 ## 참고할 RAG 자료 후보
 

@@ -19,13 +19,13 @@ import qa_web_service as _qa_web_service
 
 # Streamlit Cloud can rerun this file without restarting Python. If a deploy
 # adds a service API, refresh the already-cached module before importing it.
-if not hasattr(_qa_web_service, "list_git_branches"):
+if not all(hasattr(_qa_web_service, name) for name in ("list_git_branches", "SOURCE_UPLOAD_TYPES")):
     importlib.invalidate_caches()
     _qa_web_service = importlib.reload(_qa_web_service)
 
 from qa_web_service import (
     clear_session, compare_inventory, compare_prepared, make_snapshot_download, new_session,
-    list_git_branches, list_git_history, prepare_git, prepare_local, prepare_upload,
+    list_git_branches, list_git_history, prepare_git, prepare_local, prepare_upload, SOURCE_UPLOAD_TYPES,
 )
 
 LABELS = {"local": "로컬 소스", "engine": "엔진 프로젝트", "git": "Git", "apk": "APK", "ipa": "IPA"}
@@ -106,8 +106,8 @@ def input_side(side, title, *, ast_only=False):
             snapshot_brief(by_id[selected]["manifest"])
             return spec
         if method == "파일 업로드":
-            st.caption("Python 파일 · Notebook · 프로젝트 ZIP (폴더는 ZIP으로 올려주세요)" if ast_only else "APK · IPA · Python 파일 · 프로젝트 ZIP (폴더는 ZIP으로 올려주세요)")
-            extensions = ["py", "ipynb", "zip"] if ast_only else ["apk", "ipa", "py", "ipynb", "zip"]
+            st.caption("Python 파일 · Notebook · Python 프로젝트 ZIP (폴더는 ZIP으로 올려주세요)" if ast_only else "지원 코드 파일 · 프로젝트 ZIP · APK · IPA")
+            extensions = ["py", "ipynb", "zip"] if ast_only else ["apk", "ipa", "zip", *SOURCE_UPLOAD_TYPES]
             upload = st.file_uploader("파일 선택", type=extensions, max_upload_size=200, key=f"{side}_upload")
             if upload is not None:
                 spec.update(filename=upload.name, data=upload.getvalue(), ready=True)

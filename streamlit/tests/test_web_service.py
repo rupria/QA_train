@@ -102,6 +102,16 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual([(c["file"], c["symbol"]) for c in report["changes"]], [("after.py", "gate")])
         self.assertEqual(report["changes"][0]["features"][0]["tc_ids"], ["TC-001"])
 
+    def test_direct_non_python_code_upload_is_identified_without_enabling_python_ast(self):
+        manifest = service.prepare_upload(
+            self.session,
+            "component.tsx",
+            b"export const Component = () => <main />;\n",
+        )
+        self.assertEqual(manifest["files"][0]["language"], "TypeScript")
+        self.assertEqual(manifest["files"][0]["category"], "source_code")
+        self.assertFalse(manifest["capabilities"]["python_ast"])
+
     def test_engine_project_zip_preserves_assets_and_detects_version(self):
         data = zipped([("Assets/Scripts/Policy.cs", b"class Policy {}"),
                        ("Assets/Temp/Screen.prefab", b"%YAML 1.1"),

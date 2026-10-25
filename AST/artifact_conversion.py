@@ -39,12 +39,49 @@ ENGINE_ROOT_CACHES = {
     "Godot": {".godot"},
 }
 SOURCE_LANGUAGES = {
-    ".py": "Python", ".ipynb": "Python notebook", ".cs": "C#", ".java": "Java",
-    ".kt": "Kotlin", ".kts": "Kotlin", ".c": "C", ".h": "C/C++",
-    ".cpp": "C++", ".cc": "C++", ".cxx": "C++", ".hpp": "C++",
-    ".gd": "GDScript", ".lua": "Lua", ".js": "JavaScript", ".ts": "TypeScript",
-    ".ps1": "PowerShell", ".sh": "shell", ".swift": "Swift",
+    ".py": "Python", ".pyw": "Python", ".ipynb": "Python notebook",
+    ".js": "JavaScript", ".jsx": "JavaScript", ".mjs": "JavaScript", ".cjs": "JavaScript",
+    ".ts": "TypeScript", ".tsx": "TypeScript", ".vue": "Vue", ".svelte": "Svelte", ".astro": "Astro",
+    ".html": "HTML", ".htm": "HTML", ".css": "CSS", ".scss": "SCSS", ".sass": "Sass", ".less": "Less",
+    ".cs": "C#", ".csx": "C#", ".cshtml": "Razor/C#", ".razor": "Razor/C#", ".vb": "Visual Basic .NET",
+    ".fs": "F#", ".fsx": "F#", ".fsi": "F#",
+    ".java": "Java", ".jsp": "JSP/Java", ".kt": "Kotlin", ".kts": "Kotlin",
+    ".scala": "Scala", ".groovy": "Groovy", ".gradle": "Groovy/Gradle",
+    ".c": "C", ".h": "C/C++", ".cpp": "C++", ".cc": "C++", ".cxx": "C++", ".hpp": "C++",
+    ".hh": "C++", ".hxx": "C++", ".m": "Objective-C or MATLAB", ".mm": "Objective-C++",
+    ".swift": "Swift", ".dart": "Dart", ".go": "Go", ".rs": "Rust", ".zig": "Zig", ".nim": "Nim",
+    ".rb": "Ruby", ".php": "PHP", ".phtml": "PHP", ".pl": "Perl", ".pm": "Perl",
+    ".r": "R", ".jl": "Julia", ".sql": "SQL", ".lua": "Lua", ".gd": "GDScript", ".elm": "Elm",
+    ".ex": "Elixir", ".exs": "Elixir", ".erl": "Erlang", ".hrl": "Erlang",
+    ".clj": "Clojure", ".cljs": "ClojureScript", ".cljc": "Clojure", ".hs": "Haskell", ".lhs": "Haskell",
+    ".ml": "OCaml", ".mli": "OCaml", ".sol": "Solidity", ".asm": "Assembly", ".s": "Assembly",
+    ".v": "Verilog", ".sv": "SystemVerilog", ".vhd": "VHDL", ".vhdl": "VHDL",
+    ".proto": "Protocol Buffers", ".graphql": "GraphQL", ".gql": "GraphQL",
+    ".tf": "Terraform/HCL", ".tfvars": "Terraform/HCL", ".hcl": "HCL", ".bicep": "Bicep", ".rego": "Rego",
+    ".ps1": "PowerShell", ".psm1": "PowerShell", ".psd1": "PowerShell",
+    ".sh": "Shell", ".bash": "Shell", ".zsh": "Shell", ".fish": "Fish shell",
 }
+SOURCE_FILENAMES = {
+    "dockerfile": "Dockerfile", "containerfile": "Containerfile",
+    "makefile": "Make", "gnumakefile": "Make", "cmakelists.txt": "CMake",
+    "jenkinsfile": "Jenkins Pipeline", "justfile": "Just", "rakefile": "Ruby",
+    "gemfile": "Ruby", "podfile": "Ruby", "fastfile": "Ruby",
+    ".bashrc": "Shell", ".bash_profile": "Shell", ".zshrc": "Shell", ".profile": "Shell",
+}
+SHEBANG_LANGUAGES = (
+    (r"(?<![\w-])python(?:\d+(?:\.\d+)*)?(?![\w-])", "Python"),
+    (r"(?<![\w-])(?:node|nodejs|deno|bun)(?![\w-])", "JavaScript"),
+    (r"(?<![\w-])(?:bash|zsh|dash|ksh|sh)(?![\w-])", "Shell"),
+    (r"(?<![\w-])fish(?![\w-])", "Fish shell"),
+    (r"(?<![\w-])ruby(?![\w-])", "Ruby"),
+    (r"(?<![\w-])php(?![\w-])", "PHP"),
+    (r"(?<![\w-])perl(?![\w-])", "Perl"),
+    (r"(?<![\w-])lua(?![\w-])", "Lua"),
+    (r"(?<![\w-])(?:pwsh|powershell)(?![\w-])", "PowerShell"),
+    (r"(?<![\w-])rscript(?![\w-])", "R"),
+    (r"(?<![\w-])elixir(?![\w-])", "Elixir"),
+    (r"(?<![\w-])escript(?![\w-])", "Erlang"),
+)
 _RESERVED = {"con", "prn", "aux", "nul", *[f"com{i}" for i in "123456789¹²³"],
              *[f"lpt{i}" for i in "123456789¹²³"]}
 
@@ -112,6 +149,32 @@ def _validate_export_collisions(paths: list[str]) -> None:
             spelling[normalized], types[normalized] = part, directory
 
 
+def _source_language(path: str, header: bytes) -> str | None:
+    portable = PurePosixPath(path)
+    filename = portable.name.casefold()
+    language = SOURCE_FILENAMES.get(filename)
+    if language is None and (filename.startswith("dockerfile.") or filename.startswith("containerfile.")):
+        language = "Dockerfile" if filename.startswith("dockerfile.") else "Containerfile"
+    if language is not None:
+        return language
+    suffix = portable.suffix.lower()
+    if suffix == ".m":
+        sample = header.decode("utf-8-sig", "ignore")
+        return "Objective-C" if re.search(
+            r"(?m)^\s*(?:#\s*import\b|@(?:interface|implementation|protocol|property|autoreleasepool|end)\b)",
+            sample,
+        ) else "MATLAB/Octave"
+    language = SOURCE_LANGUAGES.get(suffix)
+    if language is not None:
+        return language
+    if header.startswith(b"#!"):
+        first_line = header.splitlines()[0].decode("utf-8", "ignore").casefold()
+        for pattern, detected in SHEBANG_LANGUAGES:
+            if re.search(pattern, first_line):
+                return detected
+    return None
+
+
 def _classification(path: str, header: bytes, *, package: bool = False) -> dict:
     suffix = PurePosixPath(path).suffix.lower()
     if package and re.fullmatch(r"classes\d*\.dex", path):
@@ -128,8 +191,9 @@ def _classification(path: str, header: bytes, *, package: bool = False) -> dict:
     if suffix == ".dll":
         # PE headers alone cannot establish that a DLL contains managed CIL.
         return dict(category="assembly_candidate", signature="PE" if header[:2] == b"MZ" else "unknown")
-    if suffix in SOURCE_LANGUAGES:
-        return dict(category="source_code", language=SOURCE_LANGUAGES[suffix])
+    language = _source_language(path, header)
+    if language is not None:
+        return dict(category="source_code", language=language)
     if suffix in {".unity", ".prefab", ".uasset", ".umap", ".tscn", ".scn"}:
         return dict(category="scene_or_component_asset")
     if suffix == ".meta":
@@ -742,11 +806,19 @@ def convert_input(source: Path, kind="auto", output=None, ref=None,
             manifest["files"].sort(key=lambda item: item["path"])
             manifest["skipped"].sort(key=lambda item: (item["path"], item["reason_code"]))
             if kind not in {"apk", "ipa"}:
-                languages = {item.get("language") for item in manifest["files"] if item["category"] == "source_code"}
-                manifest["capabilities"]["python_ast"] = bool(languages & {"Python", "Python notebook"})
+                source_files = [item for item in manifest["files"] if item["category"] == "source_code"]
+                languages = {item.get("language") for item in source_files}
+                manifest["capabilities"]["python_ast"] = any(
+                    PurePosixPath(item["path"]).suffix.lower() in {".py", ".ipynb"}
+                    and item.get("language") in {"Python", "Python notebook"}
+                    for item in source_files
+                )
                 unsupported = sorted(languages - {"Python", "Python notebook"})
                 if unsupported:
                     manifest["warnings"].append("Current AST comparison supports Python only; other source languages were preserved but not parsed: " + ", ".join(unsupported))
+                if any(item.get("language") == "Python" and PurePosixPath(item["path"]).suffix.lower() not in {".py"}
+                       for item in source_files):
+                    manifest["warnings"].append("Python scripts identified by filename or shebang were preserved, but current AST comparison parses only .py and .ipynb files.")
             if not manifest["files"]:
                 manifest["warnings"].append("No files were exported within the selected source scope.")
             manifest["warnings"] = list(dict.fromkeys(manifest["warnings"]))

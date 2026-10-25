@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .catalog import SourceDefinition, load_catalog
 from .fetcher import fetch_source, result_as_dict
+from .rule_pack import build_rule_pack
 from .rules import build_rules_from_cache, write_dataset
 
 
@@ -97,6 +98,20 @@ def command_all(args: argparse.Namespace) -> int:
     return fetch_status or build_status
 
 
+def command_pack(args: argparse.Namespace) -> int:
+    output = args.pack_output or args.data_root / "packs" / f"base-rules-{args.pack_version}.zip"
+    result = build_rule_pack(
+        args.data_root / "processed" / "rules.jsonl",
+        output,
+        args.pack_version,
+        args.model_policy,
+        review_statuses=tuple(args.review_status or ("accepted", "approved")),
+        embeddings_path=args.embeddings,
+    )
+    _print_json(result)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="qa-learn",
@@ -109,7 +124,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force", action="store_true", help="download sources even when a cache exists")
     parser.add_argument("--timeout", type=int, default=30)
     parser.add_argument("--max-bytes", type=int, default=8 * 1024 * 1024)
-    parser.add_argument("command", choices=("catalog", "policy", "fetch", "build", "all"))
+    parser.add_argument("--pack-version", default="0.1.0-draft")
+    parser.add_argument("--pack-output", type=Path)
+    parser.add_argument("--review-status", action="append")
+    parser.add_argument("--embeddings", type=Path)
+    parser.add_argument("command", choices=("catalog", "policy", "fetch", "build", "pack", "all"))
     return parser
 
 
@@ -125,6 +144,8 @@ def main(argv: list[str] | None = None) -> int:
             return command_fetch(args)
         if args.command == "build":
             return command_build(args)
+        if args.command == "pack":
+            return command_pack(args)
         return command_all(args)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))

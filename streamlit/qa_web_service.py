@@ -26,7 +26,9 @@ MAX_DOWNLOAD_BYTES = 100 * 1024**2
 GIT_CLONE_TIMEOUT_SECONDS = 180
 GIT_REF_TIMEOUT_SECONDS = 30
 MAX_GIT_BRANCHES = 500
-UPLOAD_EXTENSIONS = {".py", ".ipynb", ".zip", ".apk", ".ipa"}
+SOURCE_UPLOAD_EXTENSIONS = tuple(sorted(conversion.SOURCE_LANGUAGES))
+SOURCE_UPLOAD_TYPES = tuple(extension.removeprefix(".") for extension in SOURCE_UPLOAD_EXTENSIONS)
+UPLOAD_EXTENSIONS = {*SOURCE_UPLOAD_EXTENSIONS, ".zip", ".apk", ".ipa"}
 
 
 def new_session(workspace_root=None) -> Path:
@@ -111,7 +113,7 @@ def _save_manifest(manifest: dict) -> dict:
 def prepare_upload(session, filename: str, data: bytes, source_root=".") -> dict:
     conversion._safe_relative(filename)
     if "/" in filename or "\\" in filename or Path(filename).suffix.lower() not in UPLOAD_EXTENSIONS:
-        raise ValueError("업로드는 경로 없는 .py/.ipynb/.zip/.apk/.ipa 파일명이어야 합니다.")
+        raise ValueError("업로드는 경로 없는 지원 코드 파일 또는 .zip/.apk/.ipa 파일명이어야 합니다.")
     extension = Path(filename).suffix.lower()
     if not isinstance(data, bytes) or (not data and extension != ".py") or len(data) > MAX_UPLOAD_BYTES:
         raise ValueError("빈 파일이거나 업로드 크기 제한을 초과했습니다.")

@@ -76,6 +76,31 @@ class ConversionTests(unittest.TestCase):
         self.assertTrue((out / "manifest.json").is_file())
         self.assertTrue((out / "conversion.md").is_file())
 
+    def test_language_identification_covers_extensions_filenames_shebangs_and_ambiguous_m(self):
+        source = self.work / "polyglot"
+        fixtures = {
+            "web/view.tsx": ("export const View = () => <main />\n", "TypeScript"),
+            "mobile/main.dart": ("void main() {}\n", "Dart"),
+            "backend/main.go": ("package main\n", "Go"),
+            "native/AppDelegate.m": ("#import <UIKit/UIKit.h>\n", "Objective-C"),
+            "analysis/model.m": ("x = [1, 2, 3];\n", "MATLAB/Octave"),
+            "infra/main.tf": ("terraform {}\n", "Terraform/HCL"),
+            "ops/Dockerfile.dev": ("FROM python:3.12\n", "Dockerfile"),
+            "ops/CMakeLists.txt": ("project(example)\n", "CMake"),
+            "tools/release": ("#!/usr/bin/env python3\nprint('ok')\n", "Python"),
+        }
+        for relative, (content, _) in fixtures.items():
+            self.write(source, relative, content)
+        result = convert_input(source, output=self.work / "snapshot")
+        records = {item["path"]: item for item in result["files"]}
+        self.assertEqual(
+            {path: records[path].get("language") for path in fixtures},
+            {path: language for path, (_, language) in fixtures.items()},
+        )
+        self.assertTrue(all(records[path]["category"] == "source_code" for path in fixtures))
+        self.assertFalse(result["capabilities"]["python_ast"])
+        self.assertTrue(any("filename or shebang" in warning for warning in result["warnings"]))
+
     def test_explicit_source_root_matches_import_root(self):
         source = self.work / "repo"
         self.write(source, "src/pkg/app.py", "def f():\n    return 1\n")

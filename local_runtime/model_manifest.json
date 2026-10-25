@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "delivery": "first_run_download",
+  "models": {
+    "embedding": {
+      "model_id": "Qwen/Qwen3-Embedding-0.6B",
+      "revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+      "license": "Apache-2.0",
+      "source_url": "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B",
+      "local_dir": "qwen3-embedding-0.6b-97b0c614",
+      "approximate_download_bytes": 1210000000,
+      "query_instruction": "Given a software convention query in Korean or English, retrieve direct evidence about identifiers, naming, declarations, code quality, API contracts, and web standards.",
+      "allow_patterns": [
+        "1_Pooling/config.json",
+        "README.md",
+        "config.json",
+        "config_sentence_transformers.json",
+        "generation_config.json",
+        "merges.txt",
+        "model.safetensors",
+        "modules.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "required_files": [
+        "1_Pooling/config.json",
+        "config.json",
+        "config_sentence_transformers.json",
+        "merges.txt",
+        "model.safetensors",
+        "modules.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ]
+    }
+  }
+}

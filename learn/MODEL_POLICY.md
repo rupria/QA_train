@@ -9,12 +9,14 @@
 - 한국어·영어·프로그래밍 언어를 포함한 100개 이상 언어 지원
 - 최대 32K 입력과 1024차원 embedding
 - 검색 작업에 맞춘 사용자 지시문 지원
+- 런타임 버전: `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3` 커밋으로 고정
+- 배포 방식: 앱 최초 실행 시 사용자 로컬 데이터 폴더로 한 번 다운로드
 
 **`Qwen/Qwen3-Embedding-4B`**는 선택적 교사 모델입니다. 데이터 생성에 반드시 필요하지 않으며, GPU 환경이 준비됐을 때 0.6B 결과와 비교하거나 어려운 positive·negative 후보를 채점하는 데만 사용합니다.
 
 `Qwen/Qwen3-Reranker-0.6B`는 현재 비활성화합니다. 검토된 hard negative와 검색 평가셋이 생긴 뒤에만 연결합니다. 현재 자료만으로 reranker까지 학습하면 문서 표현을 암기하고 실제 AST 검색을 개선하지 못할 가능성이 높습니다.
 
-기계가 읽는 동일 설정은 [`model_policy.json`](model_policy.json)에 있습니다.
+기계가 읽는 동일 설정은 [`model_policy.json`](model_policy.json)에 있습니다. 실제 최초 다운로드, 완료 검증과 로컬 캐시는 [`../local_runtime`](../local_runtime)에서 관리합니다.
 
 ## 모델 입력 규칙
 

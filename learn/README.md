@@ -83,6 +83,34 @@ data/
 
 자동 추출 결과는 확정 규칙이 아니라 검토 대상입니다. 이후 공개 코드 AST와 연결할 때 높은 신뢰도 규칙부터 사용하고, 애매한 후보는 승인 상태를 추가해 관리합니다.
 
+## 규칙 팩
+
+로컬 앱에 전달할 규칙 팩은 원본 HTML이 아니라 검토된 구조화 규칙으로 만듭니다. 기본값은 `accepted`와 `approved` 규칙만 포함하며, 임베딩 파일을 지정하지 않으면 메타데이터 검색만 가능한 초안 팩이 생성됩니다.
+
+현재 자동 생성된 규칙은 전부 `pending`이므로 검토 전 배포 팩에 자동으로 포함되지 않습니다. 구조 확인용 초안은 상태를 명시해서 생성합니다.
+
+```powershell
+# 검토 전 구조 확인용 팩
+.\run_learn.ps1 pack -PackVersion 0.1.0-draft -ReviewStatus pending
+
+# 검토 완료 후 기본 팩
+.\run_learn.ps1 pack -PackVersion 1.0.0
+
+# 임베딩 생성이 끝난 배포 팩
+.\run_learn.ps1 pack -PackVersion 1.0.0 -Embeddings C:\path\embeddings.npy
+```
+
+출력 ZIP은 다음을 포함합니다.
+
+```text
+manifest.json     # 팩 버전, 모델 revision, 파일 체크섬
+rules.sqlite      # 규칙과 언어·대상 필터 인덱스
+sources.json      # 출처 URL과 원문 SHA-256
+embeddings.npy    # 지정한 경우에만 포함
+```
+
+`metadata_only` 팩은 구조 시험용이며 정식 배포 대상으로 표시되지 않습니다. `semantic_ready`이고 검토 완료 상태만 포함한 팩만 정식 배포할 수 있습니다.
+
 `swift_embedding_candidates.jsonl`은 형식 호환성을 확인하기 위한 후보 파일이며 각 행은 `training_eligible: false`입니다. 규칙 검토와 공개 코드 AST 연결이 끝나기 전에는 미세조정 입력으로 사용하지 않습니다.
 
 ## 테스트

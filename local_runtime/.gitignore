@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Model weights live in the user's local application-data directory.
+models/
+data/
