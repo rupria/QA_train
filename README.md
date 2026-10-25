@@ -54,6 +54,7 @@ Ver.A / Ver.B 입력
 검증 기준:
 
 - 2026-10-25 다중 언어 파서·선택 UI 회귀: AST 엔진 80개 + Streamlit 87개 = 167개 통과
+- 2026-10-25 언어별 독립 fixture: 등록 언어 56/56, 파싱 56/56, Ver.A/Ver.B 비교 56/56 통과
 - 규칙 팩 별도 검증 기록: `learn` 7개 + `local_runtime` 10개 = 17개 통과
 - TypeScript 실비교에서 변경 함수와 1단계 상위 호출자 후보 확인
 
@@ -89,7 +90,7 @@ Git 입력에서는 저장소 주소를 넣고 브랜치 목록을 불러온 뒤
 
 ### 선택 언어 코드 영향 분석
 
-비교 화면에서 분석할 언어를 직접 선택합니다. 선택하지 않으면 파서를 실행하지 않고 파일 구성만 비교합니다. JavaScript/TypeScript, Vue/Svelte/Astro, JVM, .NET, 네이티브, 데이터·스크립트, 인프라 언어는 Tree-sitter 공통 어댑터로 구문·심볼·import·호출 후보를 비교합니다. Python은 아래 정밀 분석 범위를 추가로 제공합니다.
+좌측 사이드바에서 사용할 언어를 직접 선택합니다. 선택하지 않으면 파서를 실행하지 않고 파일 구성만 비교합니다. JavaScript/TypeScript, Vue/Svelte/Astro, JVM, .NET, 네이티브, 데이터·스크립트, 인프라 언어는 Tree-sitter 공통 어댑터로 구문·심볼·import·호출 후보를 비교합니다. Python은 아래 정밀 분석 범위를 추가로 제공합니다.
 
 - AST 구조가 바뀐 함수·메서드·클래스·모듈 범위 탐지
 - 주석·공백·단순 줄 이동을 코드 변경에서 제외
@@ -153,6 +154,10 @@ QA_train/
 │  ├─ flow_ui.py
 │  ├─ ast_runtime.py       # 형제 AST 프로젝트를 불러오는 경계
 │  └─ tests/
+├─ Test/                   # 언어별 결정적 fixture와 파서·비교 실행 스크립트
+│  ├─ language_cases.py
+│  ├─ run_language_tests.ps1
+│  └─ README.md
 ├─ learn/                  # 공개 규칙 수집·검토·규칙 팩 생성
 ├─ local_runtime/          # 규칙 팩 설치·검증과 로컬 모델 다운로드·실행
 └─ pj_request_learn/       # 로컬 프로젝트 프로필 예정, 코드 임베딩 제외
@@ -269,6 +274,15 @@ uv sync
 cd ..\streamlit
 uv sync
 .\.venv\Scripts\python.exe -X utf8 -B -m unittest discover -s tests -v
+```
+
+지원 언어 하나 또는 전체의 파싱·비교를 독립적으로 확인할 수 있습니다. 자세한 옵션은 [`Test/README.md`](Test/README.md)에 있습니다.
+
+```powershell
+cd QA_train
+.\Test\run_language_tests.ps1 -Language typescript
+.\Test\run_language_tests.ps1 -Group web -Check parse
+.\Test\run_language_tests.ps1 -All -Check all
 ```
 
 테스트용 APK·IPA fixture는 설치 가능한 앱이 아닌 합성 ZIP입니다.

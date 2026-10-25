@@ -217,13 +217,14 @@ def _add_structure(item, *, parent_id: str, parent_name: str, relative: str,
                    grammar: str, raw: bytes, tree, nodes: list[CommonNode],
                    edges: list[CommonEdge], structures: list[tuple[int, int, str, str]],
                    used_ids: dict[str, int], language_id: str) -> None:
-    qualified = f"{parent_name}.{item.name}" if parent_name else item.name
+    item_name = _item_name(item, raw)
+    qualified = f"{parent_name}.{item_name}" if parent_name else item_name
     node_id = _unique_id(f"{language_id}:{relative}::{qualified}", used_ids)
     source_range = _range(item.span)
     common = CommonNode(
         id=node_id,
         kind=_node_kind(item.kind),
-        name=item.name,
+        name=item_name,
         qualified_name=qualified,
         file=relative,
         language=language_id,
@@ -239,7 +240,7 @@ def _add_structure(item, *, parent_id: str, parent_name: str, relative: str,
         },
     )
     nodes.append(common)
-    structures.append((item.span.start_byte, item.span.end_byte, node_id, item.name))
+    structures.append((item.span.start_byte, item.span.end_byte, node_id, item_name))
     edges.append(CommonEdge(id=f"declares:{node_id}", kind=EdgeKind.DECLARES,
                             source=parent_id, target=node_id,
                             resolution=Resolution.EXACT, confidence=1.0,
@@ -254,11 +255,12 @@ def _add_symbol(symbol, module_id: str, relative: str, grammar: str, raw: bytes,
                 nodes: list[CommonNode], edges: list[CommonEdge],
                 structures: list[tuple[int, int, str, str]], used_ids: dict[str, int],
                 language_id: str) -> None:
-    node_id = _unique_id(f"{language_id}:{relative}::{symbol.name}", used_ids)
+    symbol_name = _item_name(symbol, raw)
+    node_id = _unique_id(f"{language_id}:{relative}::{symbol_name}", used_ids)
     source_range = _range(symbol.span)
     nodes.append(CommonNode(
-        id=node_id, kind=_node_kind(symbol.kind), name=symbol.name,
-        qualified_name=symbol.name, file=relative, language=language_id,
+        id=node_id, kind=_node_kind(symbol.kind), name=symbol_name,
+        qualified_name=symbol_name, file=relative, language=language_id,
         source_range=source_range, signature=getattr(symbol, "type_annotation", None),
         language_data={
             "grammar": grammar,
@@ -268,7 +270,7 @@ def _add_symbol(symbol, module_id: str, relative: str, grammar: str, raw: bytes,
             "end_byte": symbol.span.end_byte,
         },
     ))
-    structures.append((symbol.span.start_byte, symbol.span.end_byte, node_id, symbol.name))
+    structures.append((symbol.span.start_byte, symbol.span.end_byte, node_id, symbol_name))
     edges.append(CommonEdge(id=f"declares:{node_id}", kind=EdgeKind.DECLARES,
                             source=module_id, target=node_id,
                             resolution=Resolution.EXACT, confidence=0.9,
@@ -408,6 +410,37 @@ def _node_kind(value) -> NodeKind:
 
 def _kind_name(value) -> str:
     return str(getattr(value, "name", value)).rsplit(".", 1)[-1].lower()
+
+
+def _item_name(item, raw: bytes) -> str:
+    """Return a stable name even when a grammar omits StructureItem.name."""
+    supplied = str(getattr(item, "name", "") or "").strip()
+    if supplied:
+        return supplied
+    kind = _kind_name(getattr(item, "kind", "content"))
+    signature = str(getattr(item, "signature", "") or "").strip()
+    span = item.span
+    source = raw[span.start_byte:span.end_byte].decode("utf-8", "replace")
+    text = signature or source
+    declarations = re.findall(
+        r"\b(?:class|interface|struct|record|enum|trait|object|module|namespace|defmodule)\s+"
+        r"([A-Za-z_$][\w$]*)",
+        text,
+    )
+    if declarations:
+        return declarations[0]
+    functions = re.findall(
+        r"\b(?:fun|fn|func|function|def|proc|sub)\s+([A-Za-z_$][\w$!?-]*)",
+        text,
+    )
+    if functions:
+        return functions[0]
+    calls = re.findall(r"([A-Za-z_$][\w$]*)\s*\(", text)
+    ignored = {"if", "for", "while", "switch", "catch", "return", "sizeof", "typeof"}
+    candidate = next((name for name in calls if name.casefold() not in ignored), None)
+    if candidate:
+        return candidate
+    return f"<{kind}@{span.start_line + 1}:{span.start_column + 1}>"
 
 
 def _range(span) -> SourceRange:
