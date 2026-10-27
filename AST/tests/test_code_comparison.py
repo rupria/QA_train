@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from code_comparison import build_comparison, markdown_comparison, write_comparison
+from code_comparison import build_comparison, write_comparison
 from code_relations import build_relations
 from code_snapshot import load_snapshot
 

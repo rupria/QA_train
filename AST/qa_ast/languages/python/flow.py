@@ -10,7 +10,7 @@ from pathlib import Path
 import uuid
 
 from .comparison import comparison_input
-from .relations import Resolver, build_relations, dotted, owned_nodes
+from .relations import Resolver, build_relations, owned_nodes
 from .snapshot import load_snapshot
 
 

@@ -29,6 +29,7 @@ class LanguageArchitectureTests(unittest.TestCase):
 
     def test_registry_supports_explicit_language_selection(self):
         registry = default_registry()
+        self.assertIs(registry, default_registry())
         selected = registry.selected(["python", "python"])
         self.assertEqual([adapter.language_id for adapter in selected], ["python"])
         self.assertEqual(registry.detect(self._source()), {"python": 1})

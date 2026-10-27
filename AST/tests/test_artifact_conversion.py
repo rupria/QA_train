@@ -253,7 +253,7 @@ class ConversionTests(unittest.TestCase):
         self.write(repo, "src/untracked.txt", "received local file")
         before = self.git(repo, "status", "--porcelain")
         committed = convert_input(repo, kind="git", ref="HEAD", source_root="src", output=self.work / "committed")
-        local = convert_input(repo, source_root="src", output=self.work / "local")
+        convert_input(repo, source_root="src", output=self.work / "local")
         self.assertEqual(committed["source"]["commit_sha"], sha)
         self.assertEqual((self.work / "committed/content/pkg/app.py").read_text(), "def f(x):\n    return x < 30\n")
         self.assertFalse((self.work / "committed/content/untracked.txt").exists())

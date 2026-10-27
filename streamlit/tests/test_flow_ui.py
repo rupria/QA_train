@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from streamlit.testing.v1 import AppTest
 import artifact_conversion as conversion
 import qa_web_service as web
-from test_flow_service import mapping, project_source, project_zip
+from test_flow_service import project_source, project_zip
 
 
 class Uploaded(io.BytesIO):

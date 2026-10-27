@@ -17,6 +17,7 @@ class AdapterRegistry:
 
     def __init__(self, adapters: Iterable[LanguageAdapter] = ()) -> None:
         self._adapters: dict[str, LanguageAdapter] = {}
+        self._by_extension: dict[str, list[LanguageAdapter]] = {}
         for adapter in adapters:
             self.register(adapter)
 
@@ -27,6 +28,8 @@ class AdapterRegistry:
         if language_id in self._adapters:
             raise ValueError(f"language adapter already registered: {language_id}")
         self._adapters[language_id] = adapter
+        for extension in adapter.extensions:
+            self._by_extension.setdefault(extension, []).append(adapter)
 
     def get(self, language_id: str) -> LanguageAdapter:
         key = language_id.strip().lower()
@@ -50,12 +53,15 @@ class AdapterRegistry:
     def detect(self, root: Path) -> dict[str, int]:
         """Return extension evidence for UI suggestions; users still confirm selection."""
         root = Path(root)
-        counts = {language_id: 0 for language_id in self._adapters}
+        counts: dict[str, int] = {}
         for path in self._source_files(root):
-            for language_id, adapter in self._adapters.items():
+            # Known extensions usually map to one adapter. Fall back to the
+            # full catalog for names such as Dockerfile, Makefile and CMakeLists.txt.
+            candidates = self._by_extension.get(path.suffix.lower()) or self._adapters.values()
+            for adapter in candidates:
                 if adapter.supports_file(path):
-                    counts[language_id] += 1
-        return {key: value for key, value in counts.items() if value}
+                    counts[adapter.language_id] = counts.get(adapter.language_id, 0) + 1
+        return counts
 
     def _source_files(self, root: Path):
         if root.is_file():
