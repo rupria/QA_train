@@ -12,7 +12,7 @@ import subprocess
 import uuid
 import zipfile
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 from ast_runtime import AST_ROOT
@@ -20,6 +20,7 @@ from ast_runtime import AST_ROOT
 import artifact_conversion as conversion
 from code_comparison import build_comparison
 from qa_ast import build_language_comparison
+from git_diff_service import build_git_diff
 
 
 MAX_UPLOAD_BYTES = 200 * 1024**2
@@ -111,6 +112,19 @@ def _save_manifest(manifest: dict) -> dict:
     return manifest
 
 
+def _archive_source_root(entries: list[tuple], requested: str) -> tuple[str, bool]:
+    """Select a single ZIP wrapper directory when the user requested root."""
+    if requested != ".":
+        return requested, False
+    files = [key for entry, key in entries if not entry.is_dir()]
+    roots = {PurePosixPath(key).parts[0] for key in files if PurePosixPath(key).parts}
+    if len(roots) == 1:
+        root = next(iter(roots))
+        if all(key.startswith(root + "/") for key in files):
+            return root, True
+    return ".", False
+
+
 def prepare_upload(session, filename: str, data: bytes, source_root=".") -> dict:
     conversion._safe_relative(filename)
     if "/" in filename or "\\" in filename or Path(filename).suffix.lower() not in UPLOAD_EXTENSIONS:
@@ -119,6 +133,8 @@ def prepare_upload(session, filename: str, data: bytes, source_root=".") -> dict
     if not isinstance(data, bytes) or (not data and extension != ".py") or len(data) > MAX_UPLOAD_BYTES:
         raise ValueError("빈 파일이거나 업로드 크기 제한을 초과했습니다.")
     conversion._safe_relative(source_root, allow_dot=True)
+    if extension != ".zip" and source_root != ".":
+        raise ValueError("source-root는 프로젝트 ZIP 입력에서만 사용할 수 있습니다.")
     archive = None
     try:
         if extension == ".zip":
@@ -129,9 +145,23 @@ def prepare_upload(session, filename: str, data: bytes, source_root=".") -> dict
             if archive is not None:
                 source = folder / "project"
                 source.mkdir()
-                total = 0
+                selected_root, automatic_root = _archive_source_root(entries, source_root)
+                total = excluded = selected = 0
                 for entry, key in entries:
-                    destination = source / key
+                    if selected_root == ".":
+                        relative = key
+                    elif key == selected_root:
+                        continue
+                    elif key.startswith(selected_root + "/"):
+                        relative = key[len(selected_root) + 1:]
+                    else:
+                        continue
+                    if not relative or conversion._excluded(
+                        relative, source_root=".", is_directory=entry.is_dir()
+                    ):
+                        excluded += 1
+                        continue
+                    destination = source / relative
                     if entry.is_dir():
                         destination.mkdir(parents=True, exist_ok=True)
                     else:
@@ -139,14 +169,31 @@ def prepare_upload(session, filename: str, data: bytes, source_root=".") -> dict
                             size, _, _ = conversion._stream_copy(reader, destination,
                                 expected_size=entry.file_size, byte_limit=conversion.MAX_APK_MEMBER_BYTES)
                         total += size
+                        selected += 1
                         if total > conversion.MAX_APK_TOTAL_BYTES:
                             raise ValueError("프로젝트 ZIP의 실제 압축 해제 크기 제한을 초과했습니다.")
+                if not selected:
+                    raise ValueError("선택한 ZIP 비교 루트에 준비할 파일이 없습니다.")
             else:
                 source = folder / filename
                 with source.open("xb") as writer:
                     writer.write(data)
-            manifest = conversion.convert_input(source, output=output, source_root=source_root)
+            manifest = conversion.convert_input(source, output=output)
             manifest["source"].update(uploaded_name=filename, upload_sha256=hashlib.sha256(data).hexdigest())
+            if archive is not None:
+                manifest["source"].update(
+                    source_root=selected_root,
+                    requested_source_root=source_root,
+                    archive_root_auto_selected=automatic_root,
+                )
+                if automatic_root:
+                    manifest["warnings"].append(
+                        f"ZIP의 단일 최상위 폴더 `{selected_root}`를 자동으로 제거해 상대 경로를 비교합니다."
+                    )
+                if excluded:
+                    manifest["warnings"].append(
+                        f"ZIP 압축 해제 전에 캐시·의존성·생성 폴더 항목 {excluded}개를 제외했습니다."
+                    )
             return _save_manifest(manifest)
         except Exception:
             _cleanup_job(folder)
@@ -508,6 +555,34 @@ def compare_inventory(base, target) -> dict:
         limitations=["내용 해시·크기·상대 경로의 변경입니다. 코드 의미·기능 영향·TC·실행 결과를 확정하지 않습니다.",
                      "서명·빌드 도구·백엔드·ABI·최적화·난독화·패키징 차이도 파일 변경으로 나타날 수 있습니다.",
                      "누락 범위는 변경 판정에서 제외하며 서버/다운로드 콘텐츠 변경은 포함되지 않습니다."])
+
+
+def compare_source_diff(base, target) -> dict:
+    """Compare verified original-source snapshots with Git's diff engine."""
+    base, base_output = _verified(base)
+    target, target_output = _verified(target)
+    if base["representation"] != "original_source" or target["representation"] != "original_source":
+        raise ValueError("Git 스타일 코드 diff는 원본 소스끼리만 사용할 수 있습니다.")
+    result = build_git_diff(
+        base_output / "content",
+        target_output / "content",
+        base["files"],
+        target["files"],
+        git=conversion._git_executable(),
+        environment_factory=conversion._git_env,
+    )
+    details = result.pop("details")
+    result.update(
+        base=base["source"],
+        target=target["source"],
+        status="incomplete" if any(
+            item["status"] != "prepared" for item in (base, target)
+        ) else "analyzed",
+        warnings=list(
+            dict.fromkeys([*base.get("warnings", []), *target.get("warnings", [])])
+        ),
+    )
+    return {"inventory": result, "details": details, "engine": "git diff --no-index"}
 
 
 def make_snapshot_download(manifest) -> bytes:

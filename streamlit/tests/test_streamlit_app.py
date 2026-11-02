@@ -131,6 +131,8 @@ class StreamlitAppTests(unittest.TestCase):
         self.assertTrue(any("Python" in option for option in language.options))
         self.assertFalse(any("변경 근거에서 QA 검증 후보까지" in item.value
                              for item in self.app.sidebar.caption))
+        self.assertTrue(any("v0.1.0" in item.value and "로컬 앱" in item.value
+                            for item in self.app.sidebar.caption))
         self.assertEqual(self.app.button(key="run_pair").label, "두 입력 비교")
         session = self.app.session_state.work_session
         self.app.run()

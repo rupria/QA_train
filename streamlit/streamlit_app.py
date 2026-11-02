@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import difflib
 import importlib
 import json
 import os
@@ -11,26 +10,31 @@ from pathlib import Path
 import streamlit as st
 
 from ast_runtime import AST_ROOT
+from app_identity import APP_VERSION, PRODUCT_NAME, version_label
 
 from code_comparison import code_block, markdown_comparison
 from qa_ast import default_registry
 from ast_ui import ast_view
 from flow_ui import flow_view
+from diff_viewer import register_diff_viewer, render_diff
 import qa_web_service as _qa_web_service
 
 # Streamlit Cloud can rerun this file without restarting Python. If a deploy
 # adds a service API, refresh the already-cached module before importing it.
-if not all(hasattr(_qa_web_service, name) for name in ("list_git_branches", "SOURCE_UPLOAD_TYPES")):
+if not all(hasattr(_qa_web_service, name) for name in ("list_git_branches", "SOURCE_UPLOAD_TYPES", "compare_source_diff")):
     importlib.invalidate_caches()
     _qa_web_service = importlib.reload(_qa_web_service)
 
 from qa_web_service import (
-    clear_session, compare_inventory, compare_prepared, make_snapshot_download, new_session,
+    clear_session, compare_inventory, compare_prepared, compare_source_diff, make_snapshot_download, new_session,
     list_git_branches, list_git_history, prepare_git, prepare_local, prepare_upload, SOURCE_UPLOAD_TYPES,
 )
 
 LABELS = {"local": "로컬 소스", "engine": "엔진 프로젝트", "git": "Git", "apk": "APK", "ipa": "IPA"}
-CHANGE_LABELS = {"added": "추가", "deleted": "삭제", "modified": "수정", "unchanged": "동일"}
+CHANGE_LABELS = {
+    "added": "추가", "deleted": "삭제", "modified": "수정",
+    "renamed": "이름 변경", "copied": "복사", "unchanged": "동일",
+}
 LOCAL_ALLOWED = os.environ.get("QA_WEB_ALLOW_LOCAL", "1") == "1"
 
 _LANGUAGE_GROUPS = {
@@ -321,10 +325,15 @@ def pair_view():
                 raise ValueError(f"코드 영향 분석에는 {selected} 원본 소스가 양쪽 모두 필요합니다. 언어 또는 파일 구성 비교를 확인하세요.")
             b, t = base["manifest"], target["manifest"]
             with st.spinner("두 입력의 변경 내용을 비교하고 있습니다."):
-                report = compare_prepared(st.session_state.work_session, b, t, language_id=language_id,
-                                          features_json=features, max_depth=depth) if actual_mode == "코드 영향" else compare_inventory(b, t)
                 evidence = file_evidence(b, t) if b["representation"] == "original_source" else None
-            if evidence:
+                if actual_mode == "코드 영향":
+                    report = compare_prepared(
+                        st.session_state.work_session, b, t, language_id=language_id,
+                        features_json=features, max_depth=depth,
+                    )
+                else:
+                    report = evidence["inventory"] if evidence else compare_inventory(b, t)
+            if evidence and actual_mode == "코드 영향":
                 report["file_comparison"] = evidence
             st.session_state.pair_analysis = {"signature": signature, "report": report, "mode": actual_mode, "file_evidence": evidence, "base": base, "target": target}
         except (ValueError, OSError, RuntimeError) as error:
@@ -349,53 +358,56 @@ def pair_view():
 
 
 def file_evidence(base, target):
-    inventory = compare_inventory(base, target)
-    details = {}
-    remaining = 2 * 1024**2
-    for change in inventory["changes"]:
-        key = change["path"]
-        if base["representation"] != "original_source":
-            details[key] = {"note": "설치 패키지는 파일 구성·해시 변경까지 비교합니다."}
-            continue
-        values = []
-        try:
-            for manifest, side in ((base, "base"), (target, "target")):
-                entry = change[side]
-                if entry is None:
-                    values.append("")
-                    continue
-                if entry["size"] > 512 * 1024 or entry["size"] > remaining:
-                    raise ValueError("큰 파일은 텍스트 차이 표시 범위를 초과합니다.")
-                content = (Path(manifest["output_path"]) / "content" / key).read_bytes()
-                remaining -= len(content)
-                if b"\x00" in content:
-                    raise ValueError("바이너리 파일은 텍스트 차이를 표시하지 않습니다.")
-                values.append(content.decode("utf-8-sig"))
-            difference = "\n".join(difflib.unified_diff(values[0].splitlines(), values[1].splitlines(), fromfile=f"Ver.A/{key}", tofile=f"Ver.B/{key}", lineterm=""))
-            if len(difference) > 128 * 1024:
-                details[key] = {"note": "텍스트 차이가 너무 커서 앞부분만 표시합니다.", "diff": difference[:128 * 1024]}
-            else:
-                details[key] = {"diff": difference or "인코딩·줄바꿈 등 바이트 표현이 변경됐습니다."}
-        except (UnicodeError, ValueError) as error:
-            details[key] = {"note": str(error)}
-    return {"inventory": inventory, "details": details}
+    return compare_source_diff(base, target)
 
 
 def render_file_evidence(evidence):
     inventory = evidence["inventory"]
     changes = inventory["changes"]
     st.subheader("두 입력 사이의 변경 파일")
-    st.caption(f"추가 {inventory['summary']['added']} · 삭제 {inventory['summary']['deleted']} · 수정 {inventory['summary']['modified']} · 동일 {inventory['summary']['unchanged']}")
+    summary = inventory["summary"]
+    counts = [
+        f"추가 {summary['added']}", f"삭제 {summary['deleted']}",
+        f"수정 {summary['modified']}", f"이름 변경 {summary.get('renamed', 0)}",
+        f"동일 {summary['unchanged']}",
+    ]
+    st.caption(" · ".join(counts))
+    st.caption(
+        f"Git diff 기준 코드 줄 +{summary.get('additions', 0)} / -{summary.get('deletions', 0)} · "
+        "CRLF/LF 줄바꿈만 다른 파일은 변경에서 제외"
+    )
     if not changes:
         st.info("선택한 비교 루트에서 파일 내용의 차이가 없습니다.")
         return
-    st.dataframe([{"파일": c["path"], "변경": CHANGE_LABELS[c["type"]]} for c in changes], hide_index=True, width="stretch")
-    key = st.selectbox("파일 변경 내용", [c["path"] for c in changes], key=f"file_diff_{inventory['run_id']}")
-    detail = evidence["details"][key]
+    st.dataframe(
+        [{
+            "파일": (f"{c['base_path']} → {c['target_path']}"
+                    if c["type"] in {"renamed", "copied"} else c["path"]),
+            "변경": CHANGE_LABELS[c["type"]],
+            "+": c.get("additions", 0),
+            "-": c.get("deletions", 0),
+        } for c in changes],
+        hide_index=True,
+        width="stretch",
+    )
+    selected = st.selectbox(
+        "변경 파일 상세",
+        range(len(changes)),
+        format_func=lambda index: (
+            f"{CHANGE_LABELS[changes[index]['type']]} · "
+            + (f"{changes[index]['base_path']} → {changes[index]['target_path']}"
+               if changes[index]["type"] in {"renamed", "copied"}
+               else changes[index]["path"])
+        ),
+        key=f"file_diff_{inventory['run_id']}",
+    )
+    change = changes[selected]
+    detail = evidence["details"][change["path"]]
     if detail.get("note"):
         st.caption(detail["note"])
     if detail.get("diff"):
-        st.code(detail["diff"].replace("--- 이전/", "--- Ver.A/", 1).replace("+++ 최신/", "+++ Ver.B/", 1), language="diff", wrap_lines=True)
+        st.caption("Ver.A → Ver.B · Git unified diff")
+        render_diff(detail["diff"], key=f"diff2html_{inventory['run_id']}_{selected}")
 
 
 def snapshot_rows():
@@ -534,10 +546,16 @@ def snapshots_view():
 
 
 def main():
-    st.set_page_config(page_title="QA compare", page_icon=":material/compare_arrows:", layout="wide")
+    st.set_page_config(
+        page_title=f"{PRODUCT_NAME} {APP_VERSION}",
+        page_icon=":material/compare_arrows:",
+        layout="wide",
+    )
+    register_diff_viewer()
     initialize()
     with st.sidebar:
-        st.markdown("### QA compare")
+        st.markdown(f"### {PRODUCT_NAME}")
+        st.caption(version_label())
         language_selector()
         st.divider()
         st.markdown("**지원하는 입력**")
@@ -557,7 +575,7 @@ def main():
             st.success("현재 세션의 스냅샷·보고서·임시 입력을 삭제했습니다.")
         st.divider()
         st.caption("선택 언어: 코드 영향 분석\n\nPython: 값 흐름 포함\n\nAPK·IPA: 파일 구성 비교")
-    st.title("QA compare")
+    st.title(PRODUCT_NAME)
     st.write("단일 소스의 AST를 만들거나 Ver.A·Ver.B의 변경 내용을 비교하세요.")
     compare_tab, flow_tab, snapshot_tab, ast_tab = st.tabs(
         ["비교", "AST 연결·해석", "스냅샷", "_AST"], key="work_tabs",

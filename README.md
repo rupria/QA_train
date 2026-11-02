@@ -8,6 +8,12 @@
 >
 > 운영 형태: 로컬 실행 / [Streamlit Cloud](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/)
 
+## 공통 디자인·버전 정책
+
+Streamlit Cloud와 다운로드형 로컬 앱은 별도 화면을 만들지 않고 `streamlit/streamlit_app.py`와 `.streamlit/config.toml`을 함께 사용합니다. 따라서 탭 구성, 색상, Git diff 상세 화면과 입력 흐름은 두 배포 형태에서 같습니다. 차이는 Cloud가 서버 로컬 경로와 로컬 모델을 비활성화하고, 로컬 앱이 사용자 PC의 경로·규칙 팩·모델을 사용할 수 있다는 점뿐입니다.
+
+제품 버전은 루트의 [`app_manifest.json`](app_manifest.json) 한 곳에서 관리합니다. 현재 공통 버전은 **v0.1.0**이며 `streamlit`, `local_runtime`, `learn`의 패키지 버전도 이 값과 일치해야 합니다. 화면 왼쪽 위에는 실행 형태와 함께 `v0.1.0 · Streamlit Cloud` 또는 `v0.1.0 · 로컬 앱`으로 표시합니다.
+
 ## 프로젝트 목표
 
 ```text
@@ -36,7 +42,7 @@ Ver.A / Ver.B 입력
 | UI·API·DB 매핑 | ⬜ 계획 | 화면·컴포넌트·API·백엔드 심볼·데이터 키·TC를 승인 상태와 함께 연결 |
 | 값 흐름 해석 | 🟡 1차 완료 | 반환값 → 변수 → 인자 → 매개변수 → 반환·상태 쓰기 후보 추적 |
 | 기존 Streamlit UI | ✅ 확장 | Ver.A·Ver.B 준비, 분석 언어 직접 선택, 비교, 흐름 해석, 결과 다운로드 |
-| 로컬 웹 앱 전환 | 🟡 규칙 팩 기반 구현 | 버전 규칙 팩 생성·SHA-256 검증·원자적 로컬 설치 완료, 브라우저 UI와 자동 업데이트는 다음 단계 |
+| 로컬 웹 앱 전환 | 🟡 공통 UI 적용 | Cloud와 같은 Streamlit 화면·테마·제품 버전을 로컬 실행에 사용. 규칙 팩 검증·설치 완료, 설치 파일·자동 업데이트는 다음 단계 |
 | AST/UI 역할 분리 | ✅ 완료 | `AST`는 분석 엔진, `streamlit`은 UI·웹 세션으로 독립 구성 |
 | APK·IPA 분석 | 🟡 일부 지원 | 동일 형식끼리 파일 구성 비교, IPA `Info.plist` 메타데이터 확인 |
 | 기본 규칙 검색 | 🟡 구조 완료 | 기본 규칙만 임베딩하며 사용자 프로젝트 코드는 임베딩 저장하지 않음 |
@@ -215,7 +221,7 @@ uv sync --extra inference
 
 모델 버전은 매니페스트의 커밋 SHA로 고정된다. 다운로드에 사용자 코드나 공통 그래프를 포함하지 않으며, 완료된 모델은 사용자 로컬 데이터 폴더에서 재사용한다.
 
-### 기존 Streamlit 웹 앱
+### Streamlit Cloud와 같은 디자인의 로컬 앱
 
 [Cloud 앱 열기](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/). Cloud는 기존 비교·AST 기능을 빠르게 확인하는 환경으로 유지합니다. 파일 업로드와 공개 GitHub 입력을 사용하며 로컬 규칙 팩·로컬 모델 분석은 실행하지 않습니다. Cloud의 세션 파일은 영구 보관을 보장하지 않으므로 필요한 결과는 다운로드합니다.
 
@@ -223,14 +229,16 @@ uv sync --extra inference
 git clone https://github.com/rupria/QA_train.git
 cd QA_train\streamlit
 uv sync
-.\run_qa_web.ps1
+.\run_qa_local.ps1
 ```
 
 브라우저에서 <http://127.0.0.1:8501>을 엽니다. 다른 포트는 다음처럼 지정합니다.
 
 ```powershell
-.\run_qa_web.ps1 -Port 8502
+.\run_qa_local.ps1 -Port 8502
 ```
+
+`run_qa_local.ps1`은 Cloud와 동일한 `streamlit_app.py`를 실행하되 로컬 경로 입력을 활성화합니다. 향후 다운로드 ZIP·설치 파일도 `app_manifest.json`의 버전과 이 공통 UI를 그대로 패키징합니다.
 
 ### AST CLI
 
@@ -471,3 +479,8 @@ AST 결과, 값 흐름, 기능 매핑, TC, 문서 조각이 같은 ID 체계로 
 - [Frontend Fundamentals Code Quality](https://frontend-fundamentals.com/code-quality/code/)
 
 이 문서들은 언어와 플랫폼의 용어·명명·구조를 해석하는 참고 자료입니다. 프로젝트의 실제 요구사항과 기능 명세는 별도로 연결해야 합니다.
+
+## 오픈소스 출처
+
+- [Git](https://git-scm.com/): 원본 소스의 파일 상태·이름 변경·unified diff 생성에 `git diff --no-index`를 사용합니다. 시스템 Git 설정, 외부 diff와 textconv는 비활성화하며 CRLF/LF만 다른 경우는 변경에서 제외합니다. Git은 GPL-2.0 라이선스로 배포됩니다.
+- [Diff2Html 3.4.56](https://github.com/rtfpessoa/diff2html/tree/3.4.56): Git unified diff를 GitHub 형태의 코드 변경 화면으로 표시합니다. MIT 라이선스이며 JS/CSS는 외부 CDN을 호출하지 않고 `streamlit/vendor/diff2html/`에 포함합니다. 원본 라이선스는 같은 폴더의 `LICENSE.md`에 보존했습니다.

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "product_name": "QA compare",
+  "app_version": "0.1.0",
+  "release_channel": "dev",
+  "comparison_schema_version": 1,
+  "rule_pack_schema_version": 1
+}

@@ -4,6 +4,8 @@
 
 [Streamlit Cloud 접속](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/). 실행 파일은 `streamlit/streamlit_app.py`, 브랜치는 `main`, Python 버전은 3.12다. Cloud에서는 `QA_WEB_ALLOW_LOCAL="0"`으로 파일 업로드·공개 GitHub 입력을 사용한다.
 
+Cloud와 로컬 앱은 이 실행 파일과 `.streamlit/config.toml`을 함께 사용한다. 제품 버전은 루트 `app_manifest.json`의 v0.1.0 하나로 관리하며 사이드바에서 실행 형태와 함께 확인할 수 있다.
+
 Git 입력은 저장소 주소에서 브랜치 목록을 읽어 사용자가 브랜치를 선택한 뒤 해당 브랜치의 최근 커밋을 보여 준다. 이 흐름은 `비교`의 Ver.A·Ver.B와 맨 오른쪽 `_AST`에 공통 적용된다. 같은 저장소 주소는 세션 안에서 조회 결과를 공유하고 서로 다른 주소는 각자 목록을 유지한다. 태그·SHA·`HEAD~1`처럼 목록 밖의 ref는 **직접 입력**을 사용한다.
 
 `비교`에서는 사용자가 분석 언어를 직접 선택한다. 선택한 언어의 파일과 파서만 코드 영향 분석에 사용하며, 선택하지 않으면 자동 모드도 파일 구성 비교만 수행한다. Python은 정밀 호출·참조·값 흐름과 기능·TC 매핑을 지원하고, 그 밖의 연결 언어는 Tree-sitter 기반 구문·심볼·import·호출 후보를 제공한다.
@@ -13,10 +15,10 @@ Git 입력은 저장소 주소에서 브랜치 목록을 읽어 사용자가 브
 ```powershell
 cd C:\codes\QA_train\streamlit
 uv sync
-.\run_qa_web.ps1
+.\run_qa_local.ps1
 ```
 
-브라우저에서 `http://127.0.0.1:8501`을 연다. 포트는 `.\run_qa_web.ps1 -Port 8502`처럼 바꿀 수 있다.
+브라우저에서 `http://127.0.0.1:8501`을 연다. 포트는 `.\run_qa_local.ps1 -Port 8502`처럼 바꿀 수 있다. 원본 소스의 변경 파일과 상세 코드는 Git diff 엔진으로 비교하며 Diff2Html 자산은 로컬에 포함되어 외부 CDN으로 코드를 보내지 않는다.
 
 - 상세 웹 사용법: [`WEB_GUIDE.md`](WEB_GUIDE.md)
 - AST 엔진 사용법: [`../AST/README.md`](../AST/README.md)

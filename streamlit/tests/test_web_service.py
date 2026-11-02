@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import plistlib
 import shutil
 import stat
@@ -172,6 +173,51 @@ class WebServiceTests(unittest.TestCase):
         right = service.prepare_upload(self.session, "right.zip", zipped([("src/pkg/app.py", "def f(): return 2")]), source_root="src")
         report = service.compare_prepared(self.session, left, right)
         self.assertEqual([(c["file"], c["symbol"]) for c in report["changes"]], [("pkg/app.py", "f")])
+
+    def test_zip_wrapper_and_cache_are_removed_before_git_diff(self):
+        long_cache = "project-a/.venv/Lib/site-packages/" + "nested/" * 20 + "cache.py"
+        left = service.prepare_upload(self.session, "left.zip", zipped([
+            ("project-a/app.py", b"value = 1\r\n"),
+            (long_cache, b"ignored = True\n"),
+        ]))
+        right = service.prepare_upload(self.session, "right.zip", zipped([
+            ("project-b/app.py", b"value = 1\n"),
+            ("project-b/.venv/cache.py", b"different = True\n"),
+        ]))
+        self.assertEqual([item["path"] for item in left["files"]], ["app.py"])
+        self.assertEqual([item["path"] for item in right["files"]], ["app.py"])
+        self.assertTrue(left["source"]["archive_root_auto_selected"])
+        evidence = service.compare_source_diff(left, right)
+        self.assertEqual(evidence["inventory"]["changes"], [])
+        self.assertEqual(evidence["inventory"]["summary"]["unchanged"], 1)
+
+    def test_git_diff_reports_add_delete_modify_rename_and_code_lines(self):
+        left = service.prepare_upload(self.session, "left.zip", zipped([
+            ("old-root/app.py", b"value = 1\n"),
+            ("old-root/deleted.py", b"deleted = True\n"),
+            ("old-root/old_name.py", b"same = 1\n"),
+        ]))
+        right = service.prepare_upload(self.session, "right.zip", zipped([
+            ("new-root/app.py", b"value = 2\n"),
+            ("new-root/added.py", b"added = True\n"),
+            ("new-root/new_name.py", b"same = 1\n"),
+        ]))
+        with mock.patch.dict(os.environ, {"GIT_EXTERNAL_DIFF": str(self.work / "must-not-run.exe")}):
+            evidence = service.compare_source_diff(left, right)
+        inventory = evidence["inventory"]
+        self.assertEqual(
+            {key: inventory["summary"][key] for key in ("added", "deleted", "modified", "renamed")},
+            {"added": 1, "deleted": 1, "modified": 1, "renamed": 1},
+        )
+        renamed = next(item for item in inventory["changes"] if item["type"] == "renamed")
+        self.assertEqual((renamed["base_path"], renamed["target_path"]), ("old_name.py", "new_name.py"))
+        patch_text = "\n".join(
+            detail.get("diff", "") for detail in evidence["details"].values()
+        )
+        self.assertIn("-value = 1", patch_text)
+        self.assertIn("+value = 2", patch_text)
+        self.assertNotIn(str(self.session), patch_text)
+        self.assertNotIn("C:/", patch_text)
 
     def test_inventory_apk_change_and_original_package_rejection(self):
         before = service.prepare_upload(self.session, "before.apk", self.apk(b"before"))
