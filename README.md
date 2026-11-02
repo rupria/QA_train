@@ -1,12 +1,24 @@
 # QA Train
 
+[업데이트 내역](UPDATE.md) · [구현 계획](IMPACT_ANALYSIS_PLAN.md) · [Streamlit Cloud](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/)
+
 하나의 소스에서 AST를 생성하거나, Ver.A와 Ver.B의 로컬 코드·Git 버전·엔진 프로젝트·APK·IPA를 비교해 변경 지점과 QA 영향 후보를 찾는 정적 분석 프로젝트입니다.
 
 현재는 **1차 MVP와 Streamlit Cloud 기능 확인 환경이 완료된 상태**입니다. Cloud 앱은 기존 비교·AST 기능을 빠르게 확인하는 용도로 유지하고, 로컬 앱은 공개 기본 규칙 팩을 검증·설치해 로컬 분석에 사용하는 구조를 준비하고 있습니다. 외부 LLM API는 사용하지 않습니다.
 
-> 기준일: 2026-10-24
+> 기준일: 2026-11-02
 >
 > 운영 형태: 로컬 실행 / [Streamlit Cloud](https://apptrain-akecrcbajuvarqhr2dgtcs.streamlit.app/)
+
+## 최근 업데이트
+
+| 날짜 | 업데이트 | 주요 내용 |
+|---|---|---|
+| 2026-11-02 | v0.1.0 공통 앱 기준 | Cloud·로컬 디자인과 버전 통합, Git 스타일 파일·코드 diff, ZIP 루트 정규화 |
+| 2026-10-27 | 분석기 경량화 | 지연 import·레지스트리 재사용·확장자 인덱스 탐지 |
+| 2026-10-25 | 다국어 분석 기반 | 언어 직접 선택, Tree-sitter 공통 분석, 56개 언어 fixture 검증 |
+
+전체 변경 내용과 검증 기록은 [`UPDATE.md`](UPDATE.md)에 최신순으로 누적합니다.
 
 ## 공통 디자인·버전 정책
 
@@ -59,6 +71,7 @@ Ver.A / Ver.B 입력
 
 검증 기준:
 
+- 2026-11-02 공통 앱·Git diff 회귀: 공통 버전 4개 + Streamlit 89개 + AST 80개 = 173개 통과
 - 2026-10-25 다중 언어 파서·선택 UI 회귀: AST 엔진 80개 + Streamlit 87개 = 167개 통과
 - 2026-10-25 언어별 독립 fixture: 등록 언어 56/56, 파싱 56/56, Ver.A/Ver.B 비교 56/56 통과
 - 규칙 팩 별도 검증 기록: `learn` 7개 + `local_runtime` 10개 = 17개 통과
